@@ -1,62 +1,26 @@
 
-# JHPCIC Project Deployment & Handover Guide (beaumarc Edition)
+# JHPCIC Project Deployment Guide (Cloudflare Edition)
 
-**Version**: Stage 2 (Cloudflare Integration)
-**User**: beaumarc
+**当前架构**: Stage 2 (Vite + Pages Functions + KV)
 
-## 1. 核心架构变更 (Architecture Overview)
+## 1. Cloudflare Pages 界面配置步骤
 
-本系统采用 **Cloudflare Pages + Functions + KV** 架构，解决了长链接在微信中无法访问的问题。
+### 步骤 A: 构建配置 (Build Settings)
+- **Framework preset**: `None`
+- **Build command**: `npm run build`
+- **Build output directory**: `dist`
 
----
+### 步骤 B: 环境变量 (Environment Variables)
+- **API_KEY**: 填写您的 Google Gemini API 密钥。
 
-## 2. 部署指南 (beaumarc 专用)
+### 步骤 C: KV 绑定 (Functions KV Bindings)
+1. 前往 **Settings** -> **Functions** -> **KV namespace bindings**。
+2. 点击 **Add binding**。
+3. **Variable name**: 必须填写 `KV_BINDING`。
+4. **KV namespace**: 选择您创建的 KV 数据库 (ID: e6478c164fde49789c9cf3d1ee142617)。
+5. **保存并重新部署**。
 
-### 步骤 A: 推送代码到 GitHub
-请在本地终端执行以下指令，将代码推送到你的新仓库：
-
-```bash
-# 1. 初始化
-git init
-
-# 2. 关联远程仓库 (用户: beaumarc)
-git remote add origin https://github.com/beaumarc/jhpcic.git
-
-# 3. 提交代码
-git add .
-git commit -m "feat: complete Stage 2 architecture with Gemini AI & KV storage"
-
-# 4. 推送
-git branch -M main
-git push -u origin main
-```
-
-### 步骤 B: 构建与部署
-1. **构建项目**:
-   ```bash
-   npm install
-   npm run build
-   ```
-
-2. **上传至 Cloudflare**:
-   ```bash
-   # 这里的项目名建议与仓库一致
-   npx wrangler pages deploy dist --project-name jhpcic
-   ```
-
-### 步骤 C: 关键配置 (必做)
-在 Cloudflare 后台配置以下两项，否则功能无法生效：
-
-1. **绑定 KV**: 
-   - 变量名: `JHPCIC_STORE`
-   - 命名空间: 选择你的 KV 实例。
-2. **配置 API Key**:
-   - 在 **Settings -> Environment Variables** 中添加变量：
-   - **Variable name**: `API_KEY`
-   - **Value**: *[填入你的 Google Gemini API Key]*
-
----
-
-## 3. 故障排查
-- **API 500**: 通常是因为 KV 未绑定或变量名 `JHPCIC_STORE` 写错。
-- **AI 无法识别**: 请检查是否在 Cloudflare 后台设置了 `API_KEY` 环境变量。
+## 2. 为什么需要 KV 绑定？
+- **微信兼容性**: 微信不允许过长的 URL（Base64 模式）。
+- **短链方案**: 通过 KV 存储，生成的 URL 仅包含一个短 ID，确保在微信扫码时 100% 成功跳转。
+- **持久化**: 保单数据将在 KV 中安全存储 30 天。

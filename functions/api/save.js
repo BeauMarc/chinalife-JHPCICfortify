@@ -1,3 +1,4 @@
+
 export async function onRequestPost(context) {
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -16,18 +17,28 @@ export async function onRequestPost(context) {
       data
     };
 
-    // 使用用户发现的 KV_BINDING 变量名
+    // 优先使用用户在 Cloudflare 控制台看到的 KV_BINDING
     const kv = context.env.KV_BINDING || context.env.JHPCIC_STORE;
 
     if (kv) {
-      // 存储数据，有效期 30 天
+      // 存储数据，有效期 30 天 (2592000秒)
       await kv.put(`order:${id}`, JSON.stringify(storageRecord), { expirationTtl: 2592000 });
-      return new Response(JSON.stringify({ success: true, id }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ success: true, id }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
     } else {
-      return new Response(JSON.stringify({ error: "Cloudflare KV 未绑定。请在 Pages 设置中绑定变量名为 'KV_BINDING' 的 KV 空间。" }), { status: 500, headers: corsHeaders });
+      return new Response(JSON.stringify({ 
+        error: "KV_BINDING not found. Please bind your KV namespace in Pages Settings." 
+      }), { 
+        status: 500, 
+        headers: corsHeaders 
+      });
     }
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
+    return new Response(JSON.stringify({ error: err.message }), { 
+      status: 500, 
+      headers: corsHeaders 
+    });
   }
 }
 
