@@ -3,19 +3,26 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 /**
  * 获取并验证 API Key
- * 增加脱敏日志，帮助用户在控制台确认 Key 是否正确注入
  */
 const getApiKey = () => {
-  const key = process.env.API_KEY;
+  let key = process.env.API_KEY;
   
-  // 打印调试信息到控制台 (F12 查看)
   if (!key || key === "undefined" || key === "") {
-    console.error("AI_CONFIG_ERROR: 环境变量 API_KEY 为空或未定义。");
+    console.error("AI_CONFIG_ERROR: 环境变量 API_KEY 未定义。");
     return null;
   }
 
-  // 脱敏打印，用于核对
-  console.log(`AI_CONFIG_CHECK: Key已检测 (长度: ${key.length}, 开头: ${key.substring(0, 4)}..., 结尾: ...${key.substring(key.length - 4)})`);
+  // 移除可能存在的首尾空格
+  key = key.trim();
+
+  // 常见错误检查：如果 Key 以引号开头和结尾，说明用户在 Cloudflare 后台填错了
+  if ((key.startsWith("'") && key.endsWith("'")) || (key.startsWith('"') && key.endsWith('"'))) {
+    console.error("AI_CONFIG_ERROR: 检测到 API_KEY 包含了多余的引号！请前往 Cloudflare 删掉 Value 框里的引号。");
+    return null;
+  }
+
+  // 脱敏打印首尾，方便核对
+  console.log(`AI_CONFIG_CHECK: 已加载 (长度: ${key.length}, 开头: ${key.substring(0, 4)}..., 结尾: ...${key.substring(key.length - 4)})`);
   
   return key;
 };
@@ -27,11 +34,9 @@ const handleAIError = (e: any) => {
   console.error("AI_DEBUG_FULL_ERROR:", e);
   const errorStr = e.toString();
   
-  if (errorStr.includes("API key not valid") || errorStr.includes("400")) {
-    return "API Key 无效。请检查 Cloudflare Pages 后台变量值是否包含了多余的空格或引号，并确保在修改变量后点击了 'Retry deployment' 重新构建项目。";
-  }
-  if (errorStr.includes("quota exceeded")) {
-    return "API 额度已耗尽。请检查 Google AI Studio 的使用额度。";
+  // 识别具体的 400 错误类型
+  if (errorStr.includes("API key not valid") || errorStr.includes("INVALID_ARGUMENT")) {
+    return "API Key 无效。请检查：1. Cloudflare 后台变量值是否有引号或空格；2. 是否点击了 'Retry deployment'；3. Key 是否在 Google AI Studio 中被停用。";
   }
   
   return `识别服务异常: ${e.message || "未知错误"}`;
@@ -42,7 +47,7 @@ const handleAIError = (e: any) => {
  */
 export async function scanPersonImage(base64Image: string) {
   const apiKey = getApiKey();
-  if (!apiKey) throw new Error("缺少 API 密钥。请在 Cloudflare 后台配置 API_KEY 并重新部署 (Retry Deployment)。");
+  if (!apiKey) throw new Error("API 密钥未配置或格式错误。请查看浏览器控制台 (F12) 的错误详情。");
 
   const ai = new GoogleGenAI({ apiKey });
   const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
@@ -85,7 +90,7 @@ export async function scanPersonImage(base64Image: string) {
  */
 export async function scanVehicleImage(base64Image: string) {
   const apiKey = getApiKey();
-  if (!apiKey) throw new Error("缺少 API 密钥。");
+  if (!apiKey) throw new Error("API 密钥未配置或格式错误。");
 
   const ai = new GoogleGenAI({ apiKey });
   const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
