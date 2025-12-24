@@ -18,7 +18,7 @@ const ClientIndex: React.FC = () => {
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSigned, setHasSigned] = useState(false);
 
-  // 用于强制阅读条款的状态
+  // 条款阅读状态追踪
   const [readDocs, setReadDocs] = useState<{ [key: string]: boolean }>({
     terms: false,
     policy: false,
@@ -90,7 +90,7 @@ const ClientIndex: React.FC = () => {
               您即将进入中国人寿财险空中投保服务。请点击下方链接认真阅读相关协议，确认完毕后方可继续。
             </p>
             
-            <div className="space-y-3">
+            <div className="space-y-4">
               <DocItem 
                 title="《保险条款》" 
                 isRead={readDocs.terms} 
@@ -111,13 +111,13 @@ const ClientIndex: React.FC = () => {
             <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex gap-3 items-start">
                <span className="text-emerald-500 mt-0.5 font-bold">!</span>
                <p className="text-[11px] text-emerald-700 leading-relaxed font-medium">
-                 * 请依次点击上方协议进行阅读。点击下方“我已阅读并同意”按钮即表示您已阅读并同意上述所有条款，并授权系统获取您的投保信息用于承保确认。
+                 * 请依次点击上方协议进行阅读。点击下方“我已阅读并同意”按钮即表示您已阅读并同意上述所有条款，并授权系统获取您的投保及车辆信息用于承保确认。
                </p>
             </div>
           </div>
           
           <button 
-            onClick={() => isAllRead ? setStep('verify') : alert('请先阅读完所有协议内容')} 
+            onClick={() => isAllRead ? setStep('verify') : alert('请先依次点击并阅读完所有协议内容')} 
             className={`w-full py-5 rounded-full font-black text-lg shadow-xl transition-all active:scale-95 mt-6 ${isAllRead ? 'bg-jh-header text-white' : 'bg-gray-100 text-gray-300 cursor-not-allowed'}`}
           >
             我已阅读并同意
@@ -183,7 +183,7 @@ const ClientIndex: React.FC = () => {
               <button onClick={() => setPaymentMethod('wechat')} 
                 className={`flex items-center justify-between p-6 rounded-3xl border-2 transition-all active:scale-[0.98] ${paymentMethod === 'wechat' ? 'border-jh-green bg-emerald-50/50 shadow-inner' : 'border-gray-50 bg-slate-50/30'}`}>
                 <div className="flex items-center gap-5">
-                  <div className="w-12 h-12 overflow-hidden rounded-2xl shadow-lg border-2 border-white">
+                  <div className="w-12 h-12 overflow-hidden rounded-2xl shadow-lg border-2 border-white bg-white flex items-center justify-center">
                     <img src="/jhic.jpeg" className="w-full h-full object-cover" alt="JHIC" />
                   </div> 
                   <div>
@@ -197,7 +197,7 @@ const ClientIndex: React.FC = () => {
               <button onClick={() => setPaymentMethod('alipay')} 
                 className={`flex items-center justify-between p-6 rounded-3xl border-2 transition-all active:scale-[0.98] ${paymentMethod === 'alipay' ? 'border-blue-500 bg-blue-50/50 shadow-inner' : 'border-gray-50 bg-slate-50/30'}`}>
                 <div className="flex items-center gap-5">
-                  <div className="w-12 h-12 overflow-hidden rounded-2xl shadow-lg border-2 border-white">
+                  <div className="w-12 h-12 overflow-hidden rounded-2xl shadow-lg border-2 border-white bg-white flex items-center justify-center">
                     <img src="/jhic.jpeg" className="w-full h-full object-cover" alt="JHIC" />
                   </div> 
                   <div>
@@ -229,8 +229,8 @@ const ClientIndex: React.FC = () => {
               {paymentMethod === 'alipay' && (
                 <div className="p-10 bg-blue-50/50 rounded-[3rem] border border-blue-100 space-y-10 flex flex-col items-center">
                    <div className="relative">
-                      <div className="w-20 h-20 bg-blue-500 text-white rounded-3xl flex items-center justify-center text-4xl shadow-2xl shadow-blue-500/30 animate-pulse overflow-hidden">
-                        <img src="/jhic.jpeg" className="w-full h-full object-cover opacity-80" alt="JHIC" />
+                      <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center text-4xl shadow-2xl overflow-hidden border-2 border-blue-100 animate-pulse">
+                        <img src="/jhic.jpeg" className="w-full h-full object-cover" alt="JHIC" />
                       </div>
                    </div>
                    <div className="text-center space-y-6">
@@ -348,9 +348,9 @@ const DocItem = ({ title, isRead, onClick }: { title: string, isRead: boolean, o
       <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${isRead ? 'bg-jh-header text-white' : 'bg-gray-100 text-gray-400'}`}>
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 12l2 2 4-4" /></svg>
       </div>
-      <span className={`text-[13px] font-black tracking-tight leading-tight ${isRead ? 'text-jh-header' : 'text-gray-700'}`}>{title}</span>
+      <span className={`text-[12px] font-black tracking-tight leading-tight ${isRead ? 'text-jh-header' : 'text-gray-700'}`}>{title}</span>
     </div>
-    <div className={`text-[10px] font-black uppercase tracking-widest ${isRead ? 'text-jh-header' : 'text-gray-300'}`}>
+    <div className={`text-[9px] font-black uppercase tracking-widest ${isRead ? 'text-jh-header' : 'text-gray-300'}`}>
       {isRead ? '已阅读' : '点击阅读'}
     </div>
   </div>
