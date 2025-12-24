@@ -329,7 +329,7 @@ const ConfigGuide = ({ onClose }: any) => (
       <div className="space-y-4">
          <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl">
             <p className="font-bold text-rose-600 text-sm">检测到 AI KEY 无效或未生效</p>
-            <p className="text-xs text-rose-500 mt-1 italic">若您已配置密钥但仍报错，请务必前往 Cloudflare 控制台 -> Deployments -> 找到最新记录点击 "Retry deployment"。</p>
+            <p className="text-xs text-rose-500 mt-1 italic">若您已配置密钥但仍报错，请务必前往 Cloudflare 控制台 &rarr; Deployments &rarr; 找到最新记录点击 "Retry deployment"。</p>
          </div>
          <ol className="text-xs text-slate-500 space-y-3 px-2">
             <li>1. 确认 Cloudflare 环境变量已设置变量名为 <code className="bg-slate-100 px-1 rounded text-jh-green">API_KEY</code>。</li>
