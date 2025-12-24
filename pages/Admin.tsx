@@ -61,6 +61,27 @@ const Admin: React.FC = () => {
     setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
   };
 
+  const addCoverage = (name: string = '', amount: string = '', premium: string = '0.00') => {
+    const newCoverage: CoverageItem = { name, amount, deductible: '/', premium };
+    setData(prev => ({
+      ...prev,
+      project: {
+        ...prev.project,
+        coverages: [...prev.project.coverages, newCoverage]
+      }
+    }));
+  };
+
+  const removeCoverage = (index: number) => {
+    setData(prev => ({
+      ...prev,
+      project: {
+        ...prev.project,
+        coverages: prev.project.coverages.filter((_, i) => i !== index)
+      }
+    }));
+  };
+
   const syncInsured = () => {
     setData(prev => ({ ...prev, insured: { ...prev.proposer } }));
     alert("已将投保人信息同步至被保险人");
@@ -258,18 +279,55 @@ const Admin: React.FC = () => {
 
           {activeTab === 'project' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-10">
-               <div className="border-b border-slate-50 pb-6"><h2 className="text-3xl font-black text-slate-800">投保方案设置</h2></div>
-              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-6">
-                {data.project.coverages.map((item, idx) => (
-                   <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                      <div className="col-span-1"><InputGroup label={`险种名称`} value={item.name} onChange={v => updateCoverage(idx, 'name', v)} /></div>
-                      <div><InputGroup label="保额" value={item.amount} onChange={v => updateCoverage(idx, 'amount', v)} /></div>
-                      <div><InputGroup label="保费" value={item.premium} onChange={v => updateCoverage(idx, 'premium', v)} /></div>
+               <div className="border-b border-slate-50 pb-6">
+                  <h2 className="text-3xl font-black text-slate-800">投保方案设置</h2>
+                  <p className="text-slate-400 text-sm mt-1">您可以自由添加、删除保项，系统将自动汇总保费</p>
+               </div>
+              
+              <div className="bg-slate-50 p-6 md:p-8 rounded-[2rem] border border-slate-100 space-y-8">
+                {/* 快捷添加栏 */}
+                <div className="flex flex-wrap gap-3 items-center">
+                   <span className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2">快捷添加:</span>
+                   <QuickAddBtn label="车损险" onClick={() => addCoverage('机动车损失保险', '300,000.00')} />
+                   <QuickAddBtn label="三者险" onClick={() => addCoverage('机动车第三者责任保险', '1,000,000.00')} />
+                   <QuickAddBtn label="司机座" onClick={() => addCoverage('机动车车上人员责任险(驾驶员)', '10,000.00')} />
+                   <QuickAddBtn label="乘客座" onClick={() => addCoverage('机动车车上人员责任险(乘客)', '10,000.00/座')} />
+                   <button onClick={() => addCoverage()} className="px-4 py-2 bg-white border-2 border-dashed border-slate-200 text-slate-400 rounded-xl text-xs font-bold hover:border-jh-green hover:text-jh-green transition-all">自定义 +</button>
+                </div>
+
+                <div className="space-y-4">
+                  {data.project.coverages.map((item, idx) => (
+                    <div key={idx} className="group relative grid grid-cols-1 md:grid-cols-7 gap-4 items-end bg-white p-6 rounded-3xl border border-slate-200 shadow-sm animate-in slide-in-from-left duration-300">
+                        <div className="md:col-span-3">
+                           <InputGroup label="险种名称" value={item.name} onChange={v => updateCoverage(idx, 'name', v)} />
+                        </div>
+                        <div className="md:col-span-2">
+                           <InputGroup label="承保限额" value={item.amount} onChange={v => updateCoverage(idx, 'amount', v)} />
+                        </div>
+                        <div className="md:col-span-2 relative">
+                           <InputGroup label="保费金额" value={item.premium} onChange={v => updateCoverage(idx, 'premium', v)} />
+                           <button 
+                             onClick={() => removeCoverage(idx)}
+                             className="absolute -top-1 -right-1 md:top-auto md:bottom-3 md:-right-10 w-8 h-8 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center text-xs hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                             title="删除此项"
+                           >✕</button>
+                        </div>
+                    </div>
+                  ))}
+                </div>
+
+                {data.project.coverages.length === 0 && (
+                  <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-[2rem] text-slate-300 italic">
+                    点击上方快捷按钮添加保项
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center px-10 py-8 bg-jh-green text-white rounded-[2rem] shadow-2xl shadow-jh-green/20">
+                   <div>
+                     <span className="font-black opacity-60 text-xs uppercase tracking-widest block mb-1">Total Premium</span>
+                     <span className="font-bold">总保费合计：</span>
                    </div>
-                ))}
-                <div className="flex justify-between items-center px-8 py-5 bg-jh-green text-white rounded-2xl shadow-xl">
-                   <span className="font-bold opacity-80">总保费合计：</span>
-                   <span className="text-3xl font-black">¥ {data.project.premium}</span>
+                   <span className="text-5xl font-black italic tracking-tighter">¥ {data.project.premium}</span>
                 </div>
               </div>
             </div>
@@ -298,6 +356,15 @@ const Admin: React.FC = () => {
 };
 
 // 子组件
+const QuickAddBtn = ({ label, onClick }: { label: string, onClick: () => void }) => (
+  <button 
+    onClick={onClick}
+    className="px-4 py-2 bg-jh-green/5 text-jh-green border border-jh-green/10 rounded-xl text-xs font-bold hover:bg-jh-green hover:text-white transition-all shadow-sm"
+  >
+    {label} +
+  </button>
+);
+
 const SectionHeader = ({ title, subtitle, onScan }: any) => (
   <div className="flex justify-between items-center border-b border-slate-50 pb-6">
     <div>
