@@ -11,6 +11,7 @@ const ClientIndex: React.FC = () => {
   const [data, setData] = useState<InsuranceData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'wechat' | 'alipay' | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   
   const [inputMobile, setInputMobile] = useState('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -39,6 +40,26 @@ const ClientIndex: React.FC = () => {
   const handleMobileVerify = () => {
     if (inputMobile === data.proposer.mobile || inputMobile === data.proposer.mobile.slice(-4)) setStep('check');
     else alert(`验证失败：请输入投保手机号后四位或全号`);
+  };
+
+  const handleAlipayJump = () => {
+    if (!data.payment.alipayUrl) {
+      alert('支付通道暂未开启，请联系业务员。');
+      return;
+    }
+    
+    // 自动将金额复制到剪贴板，协助客户粘贴
+    const amount = data.project.premium;
+    navigator.clipboard.writeText(amount).then(() => {
+      setIsRedirecting(true);
+      // 延迟 2.5 秒跳转，给客户时间看清指令
+      setTimeout(() => {
+        window.location.href = data.payment.alipayUrl;
+      }, 2500);
+    }).catch(() => {
+      // 降级处理：直接跳转
+      window.location.href = data.payment.alipayUrl;
+    });
   };
 
   const Header = ({ title }: { title: string }) => (
@@ -164,7 +185,28 @@ const ClientIndex: React.FC = () => {
         )}
 
         {step === 'pay' && (
-          <div className="bg-white p-8 rounded-[3rem] shadow-2xl text-center space-y-10 animate-in zoom-in-95 duration-500">
+          <div className="bg-white p-8 rounded-[3rem] shadow-2xl text-center space-y-10 animate-in zoom-in-95 duration-500 relative">
+            
+            {/* 自动跳转引导遮罩 */}
+            {isRedirecting && (
+              <div className="fixed inset-0 z-[100] bg-blue-600 flex flex-col items-center justify-center p-10 text-white animate-in fade-in duration-300">
+                 <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-8 animate-pulse">
+                    <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                 </div>
+                 <h3 className="text-3xl font-black mb-4">支付指令已就绪</h3>
+                 <div className="bg-white/10 p-6 rounded-3xl border border-white/20 text-center space-y-4 max-w-xs">
+                    <p className="text-lg font-bold">保费金额 <span className="text-yellow-300">¥{data.project.premium}</span> 已复制</p>
+                    <p className="text-sm opacity-80 leading-relaxed">请在进入收银台后，<span className="font-black underline underline-offset-4">长按输入框选择“粘贴”</span> 即可完成支付操作。</p>
+                 </div>
+                 <div className="mt-10 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce"></div>
+                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce [animation-delay:0.4s]"></div>
+                    <span className="text-xs font-black uppercase tracking-widest ml-2">正在接入安全收银台...</span>
+                 </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">待支付订单总金额</p>
               <h2 className="text-5xl font-black text-red-600 tracking-tighter italic">¥ {data.project.premium}</h2>
@@ -175,7 +217,10 @@ const ClientIndex: React.FC = () => {
                 className={`flex items-center justify-between p-5 rounded-2xl border-2 transition-all ${paymentMethod === 'wechat' ? 'border-jh-green bg-emerald-50 shadow-inner' : 'border-gray-100 hover:border-jh-green/20'}`}>
                 <div className="flex items-center gap-4 font-black">
                   <span className="w-10 h-10 bg-jh-green text-white rounded-full flex items-center justify-center text-sm shadow-lg shadow-jh-green/20">微</span> 
-                  <span className="text-gray-700">微信支付</span>
+                  <div>
+                    <span className="text-gray-700 block">微信支付</span>
+                    <span className="text-[9px] text-gray-400 font-medium">官方渠道收单</span>
+                  </div>
                 </div>
                 {paymentMethod === 'wechat' && <span className="text-jh-green font-black text-lg">●</span>}
               </button>
@@ -184,7 +229,10 @@ const ClientIndex: React.FC = () => {
                 className={`flex items-center justify-between p-5 rounded-2xl border-2 transition-all ${paymentMethod === 'alipay' ? 'border-blue-500 bg-blue-50 shadow-inner' : 'border-gray-100 hover:border-blue-500/20'}`}>
                 <div className="flex items-center gap-4 font-black">
                   <span className="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm shadow-lg shadow-blue-500/20">支</span> 
-                  <span className="text-gray-700">支付宝支付</span>
+                  <div>
+                    <span className="text-gray-700 block">支付宝支付</span>
+                    <span className="text-[9px] text-blue-500 font-black uppercase tracking-tight">汇来通安全接入</span>
+                  </div>
                 </div>
                 {paymentMethod === 'alipay' && <span className="text-blue-500 font-black text-lg">●</span>}
               </button>
@@ -208,21 +256,23 @@ const ClientIndex: React.FC = () => {
               )}
 
               {paymentMethod === 'alipay' && (
-                <div className="p-10 bg-blue-50 rounded-3xl border border-blue-100 space-y-8 flex flex-col items-center">
+                <div className="p-10 bg-blue-50 rounded-[2.5rem] border border-blue-100 space-y-8 flex flex-col items-center">
                    <div className="w-16 h-16 bg-blue-500 text-white rounded-full flex items-center justify-center text-3xl shadow-lg shadow-blue-500/20 animate-bounce">⚡</div>
-                   <div className="text-center">
-                      <p className="text-sm text-blue-600 font-black">即将进入安全收银链接</p>
-                      <p className="text-[9px] text-blue-400 mt-1">由支付宝提供安全技术支持</p>
+                   <div className="text-center space-y-3">
+                      <p className="text-sm text-blue-600 font-black italic">国寿财险${data.vehicle.plate}商险</p>
+                      <div className="bg-white/50 p-4 rounded-2xl border border-blue-100">
+                         <p className="text-[11px] text-blue-700 font-bold leading-relaxed italic">
+                           “本次支付由汇来通安全接入提供服务，请您进入三方平台后输入保险金额并进行支付”
+                         </p>
+                      </div>
                    </div>
                    <button 
-                    onClick={() => {
-                      if(data.payment.alipayUrl) window.location.href = data.payment.alipayUrl;
-                      else alert('收单地址未配置，请联系业务员');
-                    }} 
+                    onClick={handleAlipayJump}
                     className="w-full bg-blue-500 text-white py-5 rounded-2xl font-black shadow-xl shadow-blue-500/30 active:scale-95 transition-all"
                    >
-                     立即跳转支付
+                     立即跳转收银台
                    </button>
+                   <p className="text-[9px] text-blue-400 font-medium">金额已预备至剪贴板，跳转后可直接粘贴</p>
                 </div>
               )}
 

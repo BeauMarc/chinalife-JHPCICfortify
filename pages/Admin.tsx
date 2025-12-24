@@ -37,6 +37,9 @@ const Admin: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qrInputRef = useRef<HTMLInputElement>(null);
 
+  // 汇来通商品名称自动生成逻辑
+  const hltProductName = `国寿财险${data.vehicle.plate || '[未录入车牌]'}机动车商业保险`;
+
   useEffect(() => {
     fetch('/api/status').then(res => res.json()).then(s => setKvStatus(s.kv_bound ? 'ok' : 'fail')).catch(() => setKvStatus('fail'));
     const config = getApiKey();
@@ -145,10 +148,13 @@ const Admin: React.FC = () => {
     setHistory(prev => [{ id: Date.now().toString(), timestamp: new Date().toLocaleString(), summary: `${data.proposer.name || '未命名'} - ${data.vehicle.plate || '无车牌'}`, data: JSON.parse(JSON.stringify(data)) }, ...prev]);
   };
 
-  const copyToClipboard = () => {
-    if (generatedLink) {
-      navigator.clipboard.writeText(generatedLink).then(() => alert("✅ 链接已复制到剪贴板"));
-    }
+  const copyToClipboard = (text: string, msg: string = "已复制") => {
+    navigator.clipboard.writeText(text).then(() => alert(`✅ ${msg}`));
+  };
+
+  const openHuilaitong = () => {
+    copyToClipboard(hltProductName, "商品名称已复制，请在汇来通后台粘贴");
+    window.open('https://user.huilaitongpay.com/mchInfo', '_blank');
   };
 
   return (
@@ -159,7 +165,7 @@ const Admin: React.FC = () => {
              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center font-bold text-xl cursor-help" onClick={() => setShowGuide(true)}>保</div>
              <div>
                 <h1 className="text-xl font-black tracking-tight leading-tight">JHPCIC 录入系统</h1>
-                <p className="text-[10px] opacity-70 tracking-[0.2em] font-medium uppercase">Internal Autopay System v2.6</p>
+                <p className="text-[10px] opacity-70 tracking-[0.2em] font-medium uppercase">Internal Autopay System v2.8</p>
              </div>
           </div>
           <div className="flex gap-3">
@@ -248,26 +254,63 @@ const Admin: React.FC = () => {
           {activeTab === 'payment' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-10">
               <div className="border-b border-slate-50 pb-6">
-                <h2 className="text-3xl font-black text-slate-800">支付收单配置</h2>
-                <p className="text-slate-400 text-sm mt-1">配置客户支付环节展示的内容</p>
+                <h2 className="text-3xl font-black text-slate-800">收单配置助手</h2>
+                <p className="text-slate-400 text-sm mt-1">集成第三方平台快捷操作流</p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                <div className="bg-blue-50/50 p-8 rounded-3xl border border-blue-100 space-y-6">
-                   <h3 className="font-bold text-blue-600 flex items-center gap-2"><span className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs">支</span> 支付宝收银台</h3>
-                   <InputGroup label="第三方支付跳转 URL" value={data.payment.alipayUrl} onChange={v => handleInputChange('payment', 'alipayUrl', v)} placeholder="输入支付跳转链接" />
-                </div>
-                <div className="bg-emerald-50/50 p-8 rounded-3xl border border-emerald-100 space-y-6">
-                   <h3 className="font-bold text-jh-green flex items-center gap-2"><span className="w-8 h-8 bg-jh-green text-white rounded-full flex items-center justify-center text-xs">微</span> 微信收款二维码</h3>
-                   <div className="bg-white p-6 rounded-2xl border border-emerald-100 flex flex-col items-center gap-4">
+
+              {/* 汇来通专项配置模块 */}
+              <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-8 rounded-[2.5rem] text-white shadow-2xl shadow-blue-200 relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 p-10 opacity-10 pointer-events-none group-hover:scale-110 transition-transform">
+                    <svg className="w-40 h-40" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.82v-1.91c-.06-.02-.13-.03-.19-.05-1.54-.47-2.72-1.39-3.4-2.42l1.71-1.02c.47.7 1.25 1.35 2.21 1.63.85.24 1.75.09 2.2-.33.35-.33.39-.78.11-1.08-.34-.37-.87-.63-1.6-.9l-.6-.22c-1.22-.45-2.22-.88-2.83-1.51-.77-.81-.95-1.93-.41-3.03.58-1.15 1.76-1.93 3.16-2.22V5h2.82v1.88c.07.01.14.03.21.04 1.28.27 2.26.97 2.92 1.83l-1.63 1.05c-.39-.5-.96-.92-1.69-1.1-.7-.17-1.45-.11-1.85.21-.34.28-.4.62-.19.92.29.42.92.74 1.94 1.13l.63.24c1.4.52 2.39 1.05 3 1.79.64.78.78 1.94.3 2.99-.6 1.31-1.89 2.13-3.39 2.44z"/></svg>
+                 </div>
+                 <div className="relative z-10 space-y-6">
+                    <div className="flex items-center justify-between">
+                       <div className="flex items-center gap-3">
+                          <span className="bg-white text-blue-700 px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase">Integration</span>
+                          <h3 className="text-xl font-black">汇来通收银台助手</h3>
+                       </div>
+                       <div className="flex gap-2">
+                          <div className="bg-white/10 px-3 py-1 rounded-lg text-[9px] font-mono border border-white/10">User: H15348806977</div>
+                          <div className="bg-white/10 px-3 py-1 rounded-lg text-[9px] font-mono border border-white/10">Pass: 868132</div>
+                       </div>
+                    </div>
+
+                    <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/20 space-y-4">
+                       <div>
+                          <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest mb-1">建议商品名称 (已根据规则自动生成)</p>
+                          <div className="flex justify-between items-center gap-4">
+                             <span className="text-lg font-bold tracking-tight">{hltProductName}</span>
+                             <button onClick={openHuilaitong} className="shrink-0 bg-white text-blue-700 px-5 py-2 rounded-xl font-black text-xs hover:bg-blue-50 active:scale-95 transition-all">复制并前往配置</button>
+                          </div>
+                       </div>
+                    </div>
+                    <div className="space-y-3">
+                       <label className="text-[10px] font-bold opacity-60 uppercase tracking-widest px-1">支付宝跳转链接 (请将汇来通生成的链接粘贴至此)</label>
+                       <input 
+                         type="text" 
+                         className="w-full bg-white/10 border border-white/20 text-white placeholder:text-white/30 px-5 py-4 rounded-2xl focus:ring-4 focus:ring-white/10 outline-none font-medium transition-all" 
+                         placeholder="https://user.huilaitongpay.com/pay/..."
+                         value={data.payment.alipayUrl}
+                         onChange={e => handleInputChange('payment', 'alipayUrl', e.target.value)}
+                       />
+                    </div>
+                    <p className="text-[10px] opacity-50 italic">* 步骤：1. 点击上方复制按钮 -> 2. 在汇来通后台“商品名称”处粘贴 -> 3. 点击汇来通“复制支付链接”按钮 -> 4. 粘贴到此处。</p>
+                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-10">
+                <div className="bg-emerald-50/50 p-8 rounded-[2.5rem] border border-emerald-100 space-y-6">
+                   <h3 className="font-bold text-jh-green flex items-center gap-2"><span className="w-8 h-8 bg-jh-green text-white rounded-full flex items-center justify-center text-xs">微</span> 微信收款二维码 (手动备用)</h3>
+                   <div className="bg-white p-6 rounded-3xl border border-emerald-100 flex flex-col items-center gap-4">
                       {data.payment.wechatQrCode ? (
                         <div className="relative group">
-                          <img src={data.payment.wechatQrCode} className="w-40 h-40 object-contain" alt="QR" />
-                          <button onClick={() => handleInputChange('payment', 'wechatQrCode', '')} className="absolute -top-3 -right-3 bg-red-500 text-white w-7 h-7 rounded-full text-xs shadow-lg">✕</button>
+                          <img src={data.payment.wechatQrCode} className="w-48 h-48 object-contain" alt="QR" />
+                          <button onClick={() => handleInputChange('payment', 'wechatQrCode', '')} className="absolute -top-3 -right-3 bg-red-500 text-white w-8 h-8 rounded-full text-xs shadow-lg">✕</button>
                         </div>
                       ) : (
-                        <div className="text-center">
-                          <button onClick={() => qrInputRef.current?.click()} className="bg-jh-green text-white px-8 py-3 rounded-xl font-bold shadow-sm">上传收款码</button>
-                          <p className="text-[10px] text-slate-400 mt-2">支持常见收款图片格式</p>
+                        <div className="text-center py-6">
+                          <button onClick={() => qrInputRef.current?.click()} className="bg-jh-green text-white px-10 py-4 rounded-2xl font-bold shadow-xl shadow-jh-green/20">上传微信收款码</button>
+                          <p className="text-[10px] text-slate-400 mt-4">通常用于业务员个人直收保费</p>
                         </div>
                       )}
                       <input type="file" ref={qrInputRef} hidden accept="image/*" onChange={handleQrUpload} />
@@ -342,7 +385,7 @@ const Admin: React.FC = () => {
               {qrCode && (
                 <div className="mt-12 flex flex-col items-center animate-in slide-in-from-top-10">
                    <div className="p-10 bg-white rounded-[3rem] shadow-2xl border border-slate-100"><img src={qrCode} alt="QR" className="w-64 h-64" /></div>
-                   <button onClick={copyToClipboard} className="mt-6 text-jh-green font-bold hover:underline">点击复制保单链接</button>
+                   <button onClick={() => copyToClipboard(generatedLink, "保单链接已复制")} className="mt-6 text-jh-green font-bold hover:underline">点击复制保单链接</button>
                 </div>
               )}
             </div>
