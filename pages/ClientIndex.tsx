@@ -42,6 +42,50 @@ const ClientIndex: React.FC = () => {
     }
   }, [location]);
 
+  // 签名 Canvas 逻辑优化
+  const getPos = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!canvasRef.current) return { x: 0, y: 0 };
+    const rect = canvasRef.current.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    };
+  };
+
+  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+    setIsDrawing(true);
+    const ctx = canvasRef.current?.getContext('2d');
+    if (ctx) {
+      ctx.beginPath();
+      const { x, y } = getPos(e);
+      ctx.moveTo(x, y);
+    }
+  };
+
+  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDrawing) return;
+    e.preventDefault(); // 防止移动端滚动
+    const ctx = canvasRef.current?.getContext('2d');
+    if (ctx) {
+      const { x, y } = getPos(e);
+      ctx.lineTo(x, y);
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#000';
+      ctx.stroke();
+    }
+  };
+
+  const stopDrawing = () => {
+    if (isDrawing) {
+      setIsDrawing(false);
+      setHasSigned(true);
+    }
+  };
+
   if (isLoading || !data) return <div className="p-10 text-center text-gray-400 animate-pulse font-medium">正在通过 AI 加密通道加载保单数据...</div>;
 
   const handleAlipayJump = () => {
@@ -79,6 +123,7 @@ const ClientIndex: React.FC = () => {
     </header>
   );
 
+  // 第一步：条款阅读
   if (step === 'terms') {
     return (
       <div className="min-h-screen flex flex-col bg-white font-sans">
@@ -87,7 +132,7 @@ const ClientIndex: React.FC = () => {
           <div className="flex-1 space-y-6">
             <h2 className="text-2xl font-black text-gray-800 tracking-tight">温馨提示</h2>
             <p className="text-gray-500 leading-relaxed text-sm">
-              您即将进入中国人寿财险空中投保服务。请点击下方链接认真阅读相关协议，确认完毕后方可继续。
+              您即将进入中国人寿财险空中投保服务。请依次点击下方链接认真阅读相关协议，确认完毕后方可继续。
             </p>
             
             <div className="space-y-4">
@@ -111,7 +156,7 @@ const ClientIndex: React.FC = () => {
             <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex gap-3 items-start">
                <span className="text-emerald-500 mt-0.5 font-bold">!</span>
                <p className="text-[11px] text-emerald-700 leading-relaxed font-medium">
-                 * 请依次点击上方协议进行阅读。点击下方“我已阅读并同意”按钮即表示您已阅读并同意上述所有条款，并授权系统获取您的投保及车辆信息用于承保确认。
+                 * 点击下方“我已阅读并同意”按钮即表示您已阅读并同意上述所有条款，并授权系统获取您的投保及车辆信息用于承保确认。
                </p>
             </div>
           </div>
@@ -315,17 +360,18 @@ const ClientIndex: React.FC = () => {
               <p className="text-xs text-gray-400 mt-2 font-medium">请在下方空白处书写您的正楷姓名，以此作为投保确认识别</p>
             </div>
             <div className="flex-1 bg-gray-50 border-2 border-dashed border-gray-200 rounded-[2rem] relative overflow-hidden">
-               <canvas ref={canvasRef} className="w-full h-full touch-none" 
-                onMouseDown={() => setIsDrawing(true)} onMouseUp={() => { setIsDrawing(false); setHasSigned(true); }}
-                onMouseMove={(e) => {
-                  if(!isDrawing) return;
-                  const ctx = canvasRef.current?.getContext('2d');
-                  if(ctx) {
-                    const rect = canvasRef.current!.getBoundingClientRect();
-                    ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.strokeStyle = '#222';
-                    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top); ctx.stroke();
-                  }
-                }} />
+               <canvas 
+                ref={canvasRef} 
+                className="w-full h-full touch-none cursor-crosshair" 
+                width={800} height={1000}
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseLeave={stopDrawing}
+                onTouchStart={startDrawing}
+                onTouchMove={draw}
+                onTouchEnd={stopDrawing}
+              />
                {!hasSigned && <div className="absolute inset-0 flex items-center justify-center text-gray-300 pointer-events-none text-3xl font-black opacity-10">此处签名确认</div>}
             </div>
             <div className="flex gap-4 mt-8">
