@@ -67,7 +67,7 @@ export interface InsuranceData {
   };
   payment: {
     alipayUrl: string;
-    wechatQrCode: string; // 存储微信收款码 Base64
+    wechatQrCode: string; // 存储微信收款码图片
   };
   signature?: string;
 }
