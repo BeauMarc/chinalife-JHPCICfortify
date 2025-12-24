@@ -5,23 +5,22 @@ import { GoogleGenAI, Type } from "@google/genai";
  * 获取并验证 API Key
  */
 export const getApiKey = () => {
-  // 这里读取的是 vite.config.ts 中 define 进去的值
   let key = process.env.API_KEY;
   
   if (!key || key === "undefined" || key === "" || key === "null") {
-    return { error: "MISSING", msg: "环境变量注入失败。请在 Cloudflare 后台将 API_KEY 设为 'Text' 模式并重试构建。" };
+    return { error: "MISSING", msg: "环境变量注入失败。请在 Cloudflare Pages 设置中将 API_KEY 设为 'Text' 模式并重试构建。" };
   }
 
-  // 严格清洗
+  // 严格清洗并修整
   key = key.trim().replace(/['"]/g, '');
 
   if (key.length < 10) {
-    return { error: "INVALID_FORMAT", msg: "检测到的 Key 长度过短，注入可能不完整。" };
+    return { error: "INVALID_FORMAT", msg: "检测到的 Key 格式异常，请确保在部署时环境变量已正确设置。" };
   }
 
   return { 
     key, 
-    masked: `${key.substring(0, 4)}...${key.substring(key.length - 4)}`,
+    masked: `${key.substring(0, 6)}...${key.substring(key.length - 4)}`,
     length: key.length 
   };
 };
@@ -33,19 +32,38 @@ const handleAIError = (e: any) => {
   console.error("AI_DEBUG_FULL_ERROR:", e);
   const errorMsg = e.message || e.toString();
   
-  // 识别特定状态码
   if (errorMsg.includes("API key not valid") || errorMsg.includes("invalid API key")) {
-    return "Google 验证失败：该 Key 无效或已被封禁。";
+    return "Google 验证失败：该 Key 无效。请确认已在 AI Studio 启用 Generative Language API 且未被限制。";
   }
   if (errorMsg.includes("403")) {
-    return "Google 权限错误 (403)：请在 AI Studio 中确认是否启用了 'Generative Language API'。";
+    return "权限限制 (403)：请检查 Google Cloud Project 的配额或区域限制。";
   }
   if (errorMsg.includes("429")) {
-    return "配额超限 (429)：当前 Key 访问过于频繁。";
+    return "配额超限 (429)：当前接口访问过于频繁。";
   }
   
-  return `AI 接口返回错误: ${errorMsg}`;
+  return `AI 处理异常: ${errorMsg}`;
 };
+
+/**
+ * 环境联通性测试
+ */
+export async function testAIConnection() {
+  const config = getApiKey();
+  if (config.error) throw new Error(config.msg);
+
+  const ai = new GoogleGenAI({ apiKey: config.key! });
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: "OK",
+      config: { maxOutputTokens: 10, thinkingConfig: { thinkingBudget: 0 } }
+    });
+    return !!response.text;
+  } catch (e) {
+    throw new Error(handleAIError(e));
+  }
+}
 
 /**
  * 提取图片中的投保人信息
