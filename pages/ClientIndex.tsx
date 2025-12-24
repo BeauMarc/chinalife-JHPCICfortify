@@ -18,6 +18,13 @@ const ClientIndex: React.FC = () => {
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSigned, setHasSigned] = useState(false);
 
+  // 用于强制阅读条款的状态
+  const [readDocs, setReadDocs] = useState<{ [key: string]: boolean }>({
+    terms: false,
+    policy: false,
+    auth: false
+  });
+
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const idParam = searchParams.get('id');
@@ -43,16 +50,13 @@ const ClientIndex: React.FC = () => {
       return;
     }
     
-    // AI 辅助：自动将金额复制到剪贴板，协助客户进行下一步
     const amount = data.project.premium;
     navigator.clipboard.writeText(amount).then(() => {
       setIsRedirecting(true);
-      // 保持遮罩 3.5 秒，确保客户看清指令
       setTimeout(() => {
         window.location.href = data.payment.alipayUrl;
       }, 3500);
     }).catch(() => {
-      // 容错跳转
       window.location.href = data.payment.alipayUrl;
     });
   };
@@ -62,17 +66,71 @@ const ClientIndex: React.FC = () => {
     else alert(`安全验证失败：请检查输入的手机号或后四位`);
   };
 
+  const markAsRead = (key: string, url: string) => {
+    window.open(url, '_blank');
+    setReadDocs(prev => ({ ...prev, [key]: true }));
+  };
+
+  const isAllRead = readDocs.terms && readDocs.policy && readDocs.auth;
+
   const Header = ({ title }: { title: string }) => (
     <header className="bg-jh-header text-white h-12 flex items-center px-4 sticky top-0 z-30 shadow-sm border-b border-white/10">
       <h1 className="text-lg font-bold mx-auto tracking-wide">{title}</h1>
     </header>
   );
 
+  if (step === 'terms') {
+    return (
+      <div className="min-h-screen flex flex-col bg-white font-sans">
+        <Header title="授权录入" />
+        <div className="p-6 flex flex-col flex-1">
+          <div className="flex-1 space-y-6">
+            <h2 className="text-2xl font-black text-gray-800 tracking-tight">温馨提示</h2>
+            <p className="text-gray-500 leading-relaxed text-sm">
+              您即将进入中国人寿财险空中投保服务。请点击下方链接认真阅读相关协议，确认完毕后方可继续。
+            </p>
+            
+            <div className="space-y-3">
+              <DocItem 
+                title="《保险条款》" 
+                isRead={readDocs.terms} 
+                onClick={() => markAsRead('terms', '/pdfs/保险条款.pdf')} 
+              />
+              <DocItem 
+                title="《互联网平台用戶个人信息保护政策》" 
+                isRead={readDocs.policy} 
+                onClick={() => markAsRead('policy', '/pdfs/互联网平台用戶个人信息保护政策.pdf')} 
+              />
+              <DocItem 
+                title="《车险“投保人缴费实名认证”客户授权声明书》" 
+                isRead={readDocs.auth} 
+                onClick={() => markAsRead('auth', '/pdfs/车险“投保人缴费实名认证”客户授权声明书.pdf')} 
+              />
+            </div>
+
+            <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex gap-3 items-start">
+               <span className="text-emerald-500 mt-0.5 font-bold">!</span>
+               <p className="text-[11px] text-emerald-700 leading-relaxed font-medium">
+                 * 请依次点击上方协议进行阅读。点击下方“我已阅读并同意”按钮即表示您已阅读并同意上述所有条款，并授权系统获取您的投保信息用于承保确认。
+               </p>
+            </div>
+          </div>
+          
+          <button 
+            onClick={() => isAllRead ? setStep('verify') : alert('请先阅读完所有协议内容')} 
+            className={`w-full py-5 rounded-full font-black text-lg shadow-xl transition-all active:scale-95 mt-6 ${isAllRead ? 'bg-jh-header text-white' : 'bg-gray-100 text-gray-300 cursor-not-allowed'}`}
+          >
+            我已阅读并同意
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-jh-light flex flex-col pb-10 font-sans">
       <Header title="中国人寿财险空中投保" />
       
-      {/* 进度流指示器 */}
       <div className="bg-white px-6 py-4 flex justify-between text-[10px] text-gray-300 border-b uppercase tracking-[0.2em] font-black">
          <span className={step === 'verify' ? 'text-jh-header' : ''}>身份验证</span>
          <span className="opacity-10">●</span>
@@ -87,12 +145,11 @@ const ClientIndex: React.FC = () => {
         {step === 'pay' && (
           <div className="bg-white p-8 rounded-[3rem] shadow-2xl text-center space-y-12 animate-in zoom-in-95 duration-500 relative overflow-hidden">
             
-            {/* AI 智能桥接遮罩层 */}
             {isRedirecting && (
               <div className="fixed inset-0 z-[100] bg-blue-600 flex flex-col items-center justify-center p-12 text-white animate-in fade-in duration-300">
                  <div className="w-24 h-24 bg-white/10 backdrop-blur-xl rounded-full flex items-center justify-center mb-10 shadow-inner relative">
                     <div className="absolute inset-0 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
-                    <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1.41 16.09V20h-2.82v-1.91c-.06-.02-.13-.03-.19-.05-1.54-.47-2.72-1.39-3.4-2.42l1.71-1.02c.47.7 1.25 1.35 2.21 1.63.85.24 1.75.09 2.2-.33.35-.33.39-.78.11-1.08-.34-.37-.87-.63-1.6-.9l-.6-.22c-1.22-.45-2.22-.88-2.83-1.51-.77-.81-.95-1.93-.41-3.03.58-1.15 1.76-1.93 3.16-2.22V5h2.82v1.88c.07.01.14.03.21.04 1.28.27 2.26.97 2.92 1.83l-1.63 1.05c-.39-.5-.96-.92-1.69-1.1-.7-.17-1.45-.11-1.85.21-.34.28-.4.62-.19.92.29.42.92.74 1.94 1.13l.63.24c1.4.52 2.39 1.05 3 1.79.64.78.78 1.94.3 2.99-.6 1.31-1.89 2.13-3.39 2.44z"/></svg>
+                    <img src="/jhic.jpeg" className="w-12 h-12 rounded-lg object-cover" alt="Logo" />
                  </div>
                  <h3 className="text-3xl font-black mb-6 tracking-tight">AI 支付代理已启动</h3>
                  <div className="bg-white/10 backdrop-blur-md p-10 rounded-[2.5rem] border border-white/20 text-center space-y-6 max-w-xs shadow-3xl">
@@ -126,10 +183,12 @@ const ClientIndex: React.FC = () => {
               <button onClick={() => setPaymentMethod('wechat')} 
                 className={`flex items-center justify-between p-6 rounded-3xl border-2 transition-all active:scale-[0.98] ${paymentMethod === 'wechat' ? 'border-jh-green bg-emerald-50/50 shadow-inner' : 'border-gray-50 bg-slate-50/30'}`}>
                 <div className="flex items-center gap-5">
-                  <div className="w-12 h-12 bg-jh-green text-white rounded-2xl flex items-center justify-center text-lg shadow-lg shadow-jh-green/20 font-black">微</div> 
+                  <div className="w-12 h-12 overflow-hidden rounded-2xl shadow-lg border-2 border-white">
+                    <img src="/jhic.jpeg" className="w-full h-full object-cover" alt="JHIC" />
+                  </div> 
                   <div>
                     <span className="text-gray-800 block font-black text-lg">微信支付</span>
-                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">官方安全通道</span>
+                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest text-jh-header">官方安全通道</span>
                   </div>
                 </div>
                 {paymentMethod === 'wechat' && <div className="w-6 h-6 bg-jh-green rounded-full flex items-center justify-center text-white text-xs">✓</div>}
@@ -138,7 +197,9 @@ const ClientIndex: React.FC = () => {
               <button onClick={() => setPaymentMethod('alipay')} 
                 className={`flex items-center justify-between p-6 rounded-3xl border-2 transition-all active:scale-[0.98] ${paymentMethod === 'alipay' ? 'border-blue-500 bg-blue-50/50 shadow-inner' : 'border-gray-50 bg-slate-50/30'}`}>
                 <div className="flex items-center gap-5">
-                  <div className="w-12 h-12 bg-blue-500 text-white rounded-2xl flex items-center justify-center text-lg shadow-lg shadow-blue-500/20 font-black">支</div> 
+                  <div className="w-12 h-12 overflow-hidden rounded-2xl shadow-lg border-2 border-white">
+                    <img src="/jhic.jpeg" className="w-full h-full object-cover" alt="JHIC" />
+                  </div> 
                   <div>
                     <span className="text-gray-800 block font-black text-lg">支付宝支付</span>
                     <span className="text-[9px] text-blue-500 font-black uppercase tracking-widest">汇来通 AI 协同接入</span>
@@ -151,7 +212,7 @@ const ClientIndex: React.FC = () => {
             <div className="min-h-[300px] flex flex-col justify-center animate-in slide-in-from-top-4 duration-500">
               {paymentMethod === 'wechat' && (
                 <div className="flex flex-col items-center">
-                   <p className="text-[10px] text-jh-green mb-5 font-black tracking-[0.2em] uppercase">长按下方二维码识别支付</p>
+                   <p className="text-[10px] text-jh-green mb-5 font-black tracking-[0.2em] uppercase text-jh-header">长按下方二维码识别支付</p>
                    <div className="p-6 bg-white rounded-[2.5rem] shadow-3xl border border-jh-green/5 ring-8 ring-jh-green/5">
                      {data.payment.wechatQrCode ? (
                        <img src={data.payment.wechatQrCode} className="w-64 h-64 object-contain" alt="Pay QR" />
@@ -168,7 +229,9 @@ const ClientIndex: React.FC = () => {
               {paymentMethod === 'alipay' && (
                 <div className="p-10 bg-blue-50/50 rounded-[3rem] border border-blue-100 space-y-10 flex flex-col items-center">
                    <div className="relative">
-                      <div className="w-20 h-20 bg-blue-500 text-white rounded-3xl flex items-center justify-center text-4xl shadow-2xl shadow-blue-500/30 animate-pulse">⚡</div>
+                      <div className="w-20 h-20 bg-blue-500 text-white rounded-3xl flex items-center justify-center text-4xl shadow-2xl shadow-blue-500/30 animate-pulse overflow-hidden">
+                        <img src="/jhic.jpeg" className="w-full h-full object-cover opacity-80" alt="JHIC" />
+                      </div>
                    </div>
                    <div className="text-center space-y-6">
                       <div className="bg-white/80 p-6 rounded-[2rem] border border-blue-100 shadow-sm relative">
@@ -190,7 +253,7 @@ const ClientIndex: React.FC = () => {
 
               {!paymentMethod && (
                 <div className="flex flex-col items-center justify-center text-gray-200 py-16 opacity-40">
-                  <div className="w-14 h-14 border-2 border-dashed border-gray-100 rounded-full flex items-center justify-center mb-4">?</div>
+                  <div className="w-14 h-14 border-2 border-dashed border-gray-200 rounded-full flex items-center justify-center mb-4">?</div>
                   <p className="text-sm font-black italic tracking-widest">请选择上述支付方式</p>
                 </div>
               )}
@@ -198,7 +261,6 @@ const ClientIndex: React.FC = () => {
           </div>
         )}
         
-        {/* 其他步骤逻辑保持一致 */}
         {step === 'verify' && (
           <div className="bg-white p-10 rounded-[2.5rem] shadow-sm space-y-10 animate-in slide-in-from-right duration-300">
             <h2 className="text-2xl font-black text-gray-800">安全准入验证</h2>
@@ -209,11 +271,90 @@ const ClientIndex: React.FC = () => {
             <button onClick={handleMobileVerify} disabled={inputMobile.length < 4} className="w-full bg-jh-header text-white py-5 rounded-full font-black text-lg shadow-xl shadow-jh-header/20 disabled:opacity-20 active:scale-95 transition-all">验证身份并继续</button>
           </div>
         )}
-        {/* ... (省略中间 Check/Sign 步骤以缩减篇幅，保持现有代码) ... */}
+
+        {step === 'check' && (
+          <div className="space-y-4 animate-in slide-in-from-right duration-300">
+            <div className="bg-white p-6 rounded-3xl shadow-sm flex items-center justify-between">
+               <div>
+                  <h3 className="font-black text-gray-800 text-lg">核对承保内容</h3>
+                  <p className="text-xs text-gray-400 font-medium">请核实录入信息的准确性</p>
+               </div>
+               <div className="bg-jh-header/10 text-jh-header text-[10px] px-3 py-1.5 rounded-full font-black uppercase tracking-widest">Step 2/4</div>
+            </div>
+
+            <InfoCard title="投保人" icon="👤" items={[['姓名', data.proposer.name], ['证件号', data.proposer.idCard], ['联系电话', data.proposer.mobile]]} />
+            <InfoCard title="车辆参数" icon="🚗" items={[['号牌号码', data.vehicle.plate], ['所有人', data.vehicle.vehicleOwner], ['车架号', data.vehicle.vin]]} />
+
+            <div className="bg-white p-8 rounded-[2rem] shadow-sm border-2 border-red-50 relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full -mr-16 -mt-16"></div>
+               <h3 className="font-black mb-6 text-sm text-gray-800 flex items-center gap-2">
+                 <span className="w-1.5 h-4 bg-red-500 rounded-full"></span> 承保方案及保费
+               </h3>
+               <div className="space-y-4">
+                 {data.project.coverages.map((c, i) => (
+                   <div key={i} className="flex justify-between text-xs">
+                      <span className="text-gray-400 font-bold uppercase tracking-widest">{c.name}</span>
+                      <span className="font-black text-gray-700 italic">¥ {c.premium}</span>
+                   </div>
+                 ))}
+               </div>
+               <div className="flex justify-between mt-8 pt-6 border-t border-red-100 font-black text-red-600 text-2xl italic tracking-tighter">
+                 <span>保费合计</span>
+                 <span>¥ {data.project.premium}</span>
+               </div>
+            </div>
+
+            <button onClick={() => setStep('sign')} className="w-full bg-jh-header text-white py-5 rounded-full font-black text-lg shadow-2xl shadow-jh-header/20 active:scale-95 transition-all">信息确认无误，去签名</button>
+          </div>
+        )}
+
+        {step === 'sign' && (
+          <div className="bg-white p-8 rounded-[3rem] shadow-sm h-[75vh] flex flex-col animate-in slide-in-from-bottom duration-500">
+            <div className="mb-6">
+              <h2 className="font-black text-2xl text-gray-800">电子签名确认</h2>
+              <p className="text-xs text-gray-400 mt-2 font-medium">请在下方空白处书写您的正楷姓名，以此作为投保确认识别</p>
+            </div>
+            <div className="flex-1 bg-gray-50 border-2 border-dashed border-gray-200 rounded-[2rem] relative overflow-hidden">
+               <canvas ref={canvasRef} className="w-full h-full touch-none" 
+                onMouseDown={() => setIsDrawing(true)} onMouseUp={() => { setIsDrawing(false); setHasSigned(true); }}
+                onMouseMove={(e) => {
+                  if(!isDrawing) return;
+                  const ctx = canvasRef.current?.getContext('2d');
+                  if(ctx) {
+                    const rect = canvasRef.current!.getBoundingClientRect();
+                    ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.strokeStyle = '#222';
+                    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top); ctx.stroke();
+                  }
+                }} />
+               {!hasSigned && <div className="absolute inset-0 flex items-center justify-center text-gray-300 pointer-events-none text-3xl font-black opacity-10">此处签名确认</div>}
+            </div>
+            <div className="flex gap-4 mt-8">
+              <button onClick={() => { setHasSigned(false); canvasRef.current?.getContext('2d')?.clearRect(0,0,1000,1000); }} className="flex-1 py-5 border-2 border-gray-100 rounded-full text-gray-400 font-black tracking-widest uppercase text-xs">重写</button>
+              <button onClick={() => hasSigned ? setStep('pay') : alert('请先签署姓名')} className="flex-[2] py-5 bg-jh-header text-white rounded-full font-black text-lg shadow-xl shadow-jh-header/20">确认并去支付</button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
 };
+
+const DocItem = ({ title, isRead, onClick }: { title: string, isRead: boolean, onClick: () => void }) => (
+  <div 
+    onClick={onClick}
+    className={`p-4 rounded-2xl border-2 transition-all flex items-center justify-between group active:scale-95 ${isRead ? 'border-jh-header bg-emerald-50' : 'border-gray-100 bg-white hover:border-jh-header/30'}`}
+  >
+    <div className="flex items-center gap-3">
+      <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${isRead ? 'bg-jh-header text-white' : 'bg-gray-100 text-gray-400'}`}>
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 12l2 2 4-4" /></svg>
+      </div>
+      <span className={`text-[13px] font-black tracking-tight leading-tight ${isRead ? 'text-jh-header' : 'text-gray-700'}`}>{title}</span>
+    </div>
+    <div className={`text-[10px] font-black uppercase tracking-widest ${isRead ? 'text-jh-header' : 'text-gray-300'}`}>
+      {isRead ? '已阅读' : '点击阅读'}
+    </div>
+  </div>
+);
 
 const InfoCard = ({ title, items, icon }: any) => (
   <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-50 group hover:border-jh-header/20 transition-all">
