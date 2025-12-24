@@ -1,3 +1,8 @@
+
+/**
+ * Base64 Encoding/Decoding with UTF-8 support to handle Chinese characters correctly.
+ */
+
 export const encodeData = (data: any): string => {
   try {
     const jsonString = JSON.stringify(data);
@@ -30,13 +35,39 @@ export interface CoverageItem {
   premium: string;
 }
 
+export interface PersonInfo {
+  name: string;
+  idType: string;
+  idCard: string;
+  mobile: string;
+  address: string;
+}
+
 export interface InsuranceData {
   orderId: string;
   status: 'pending' | 'paid';
-  proposer: { name: string; idType: string; idCard: string; mobile: string; address: string; };
-  insured: { name: string; idType: string; idCard: string; mobile: string; address: string; };
-  vehicle: { plate: string; vin: string; engineNo: string; brand: string; vehicleOwner: string; registerDate: string; curbWeight: string; approvedLoad: string; };
-  project: { region: string; period: string; premium: string; coverages: CoverageItem[]; };
-  payment: { alipayUrl: string; wechatUrl: string; };
+  proposer: PersonInfo;
+  insured: PersonInfo;
+  vehicle: {
+    plate: string;
+    vin: string;
+    engineNo: string;
+    brand: string;
+    vehicleOwner: string;
+    registerDate: string;
+    curbWeight: string;
+    approvedLoad: string;
+    approvedPassengers: string; 
+  };
+  project: {
+    region: string;
+    period: string;
+    premium: string;
+    coverages: CoverageItem[];
+  };
+  payment: {
+    alipayUrl: string;
+    wechatQrCode: string; // 存储微信收款码 Base64
+  };
   signature?: string;
 }
