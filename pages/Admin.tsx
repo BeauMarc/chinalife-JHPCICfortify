@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { encodeData, InsuranceData, CoverageItem } from '../utils/codec';
-import { scanPersonImage, scanVehicleImage } from '../utils/ai';
+import { scanPersonImage, scanVehicleImage, getApiKey } from '../utils/ai';
 import QRCode from 'qrcode';
 
 const INITIAL_DATA: InsuranceData = {
@@ -39,8 +39,8 @@ const Admin: React.FC = () => {
 
   useEffect(() => {
     fetch('/api/status').then(res => res.json()).then(s => setKvStatus(s.kv_bound ? 'ok' : 'fail')).catch(() => setKvStatus('fail'));
-    const key = process.env.API_KEY;
-    setAiStatus(!!key && key !== "undefined" ? 'ready' : 'missing');
+    const config = getApiKey();
+    setAiStatus(config.error ? 'missing' : 'ready');
   }, []);
 
   useEffect(() => {
@@ -77,7 +77,8 @@ const Admin: React.FC = () => {
   };
 
   const triggerAIScan = () => {
-    if (aiStatus === 'missing') { setShowGuide(true); return; }
+    const config = getApiKey();
+    if (config.error) { setShowGuide(true); return; }
     fileInputRef.current?.click();
   };
 
@@ -137,7 +138,7 @@ const Admin: React.FC = () => {
              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center font-bold text-xl cursor-help" onClick={() => setShowGuide(true)}>保</div>
              <div>
                 <h1 className="text-xl font-black tracking-tight leading-tight">JHPCIC 录入系统</h1>
-                <p className="text-[10px] opacity-70 tracking-[0.2em] font-medium uppercase">Internal Autopay System v2.5</p>
+                <p className="text-[10px] opacity-70 tracking-[0.2em] font-medium uppercase">Internal Autopay System v2.6</p>
              </div>
           </div>
           <div className="flex gap-3">
@@ -322,25 +323,49 @@ const DiagnosticBadge = ({ label, status, onClick }: any) => (
   </div>
 );
 
-const ConfigGuide = ({ onClose }: any) => (
-  <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-    <div className="bg-white rounded-[2rem] max-w-lg w-full p-10 space-y-8 animate-in zoom-in-95">
-      <h3 className="font-black text-2xl text-slate-800">系统环境异常诊断</h3>
-      <div className="space-y-4">
-         <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl">
-            <p className="font-bold text-rose-600 text-sm">检测到 AI KEY 无效或未生效</p>
-            <p className="text-xs text-rose-500 mt-1 italic">若您已配置密钥但仍报错，请务必前往 Cloudflare 控制台 &rarr; Deployments &rarr; 找到最新记录点击 "Retry deployment"。</p>
-         </div>
-         <ol className="text-xs text-slate-500 space-y-3 px-2">
-            <li>1. 确认 Cloudflare 环境变量已设置变量名为 <code className="bg-slate-100 px-1 rounded text-jh-green">API_KEY</code>。</li>
-            <li>2. 确认 KV 绑定变量名为 <code className="bg-slate-100 px-1 rounded text-jh-green">KV_BINDING</code>。</li>
-            <li className="font-bold text-slate-800 underline">3. 环境变量修改后，必须“重新构建(Retry Deployment)”方可生效！</li>
-         </ol>
+const ConfigGuide = ({ onClose }: any) => {
+  const config = getApiKey();
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-[2rem] max-w-lg w-full p-10 space-y-8 animate-in zoom-in-95">
+        <h3 className="font-black text-2xl text-slate-800">系统环境异常诊断</h3>
+        
+        <div className="space-y-4">
+           <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">当前 AI Key 探测状态</p>
+              <div className="flex justify-between items-center">
+                 <span className="text-sm font-medium">环境变量注入:</span>
+                 <span className={config.error ? 'text-rose-500 font-bold' : 'text-emerald-500 font-bold'}>
+                   {config.error ? '未检测到 (MISSING)' : '已加载 (LOADED)'}
+                 </span>
+              </div>
+              {!config.error && (
+                <>
+                  <div className="flex justify-between items-center text-xs">
+                     <span className="text-slate-400">脱敏展示:</span>
+                     <code className="bg-slate-200 px-2 py-0.5 rounded font-mono">{config.masked}</code>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                     <span className="text-slate-400">Key 字符长度:</span>
+                     <span className="font-bold">{config.length} 位</span>
+                  </div>
+                </>
+              )}
+           </div>
+
+           {config.error && (
+             <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl">
+                <p className="font-bold text-rose-600 text-sm">诊断建议：</p>
+                <p className="text-xs text-rose-500 mt-1">1. Cloudflare 设置中变量名必须是 <code className="bg-white px-1 font-bold">API_KEY</code>。<br/>2. 变量值不要带引号。<br/>3. 修改后必须去 Deployments 点击 <b>Retry deployment</b>。</p>
+             </div>
+           )}
+        </div>
+
+        <button onClick={onClose} className="w-full bg-jh-green text-white py-4 rounded-2xl font-bold">返回录入界面</button>
       </div>
-      <button onClick={onClose} className="w-full bg-jh-green text-white py-4 rounded-2xl font-bold">已了解</button>
     </div>
-  </div>
-);
+  );
+};
 
 const AILoader = () => (
   <div className="fixed inset-0 z-[100] flex items-center justify-center bg-jh-green/20 backdrop-blur-md">

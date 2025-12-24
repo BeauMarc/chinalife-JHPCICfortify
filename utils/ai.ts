@@ -4,27 +4,26 @@ import { GoogleGenAI, Type } from "@google/genai";
 /**
  * 获取并验证 API Key
  */
-const getApiKey = () => {
+export const getApiKey = () => {
+  // 这里读取的是 vite.config.ts 中 define 进去的值
   let key = process.env.API_KEY;
   
-  if (!key || key === "undefined" || key === "") {
-    console.error("AI_CONFIG_ERROR: 环境变量 API_KEY 未定义。");
-    return null;
+  if (!key || key === "undefined" || key === "" || key === "null") {
+    return { error: "MISSING", msg: "环境变量注入失败。请在 Cloudflare 后台将 API_KEY 设为 'Text' 模式并重试构建。" };
   }
 
-  // 移除可能存在的首尾空格
-  key = key.trim();
+  // 严格清洗
+  key = key.trim().replace(/['"]/g, '');
 
-  // 常见错误检查：如果 Key 以引号开头和结尾，说明用户在 Cloudflare 后台填错了
-  if ((key.startsWith("'") && key.endsWith("'")) || (key.startsWith('"') && key.endsWith('"'))) {
-    console.error("AI_CONFIG_ERROR: 检测到 API_KEY 包含了多余的引号！请前往 Cloudflare 删掉 Value 框里的引号。");
-    return null;
+  if (key.length < 10) {
+    return { error: "INVALID_FORMAT", msg: "检测到的 Key 长度过短，注入可能不完整。" };
   }
 
-  // 脱敏打印首尾，方便核对
-  console.log(`AI_CONFIG_CHECK: 已加载 (长度: ${key.length}, 开头: ${key.substring(0, 4)}..., 结尾: ...${key.substring(key.length - 4)})`);
-  
-  return key;
+  return { 
+    key, 
+    masked: `${key.substring(0, 4)}...${key.substring(key.length - 4)}`,
+    length: key.length 
+  };
 };
 
 /**
@@ -32,24 +31,30 @@ const getApiKey = () => {
  */
 const handleAIError = (e: any) => {
   console.error("AI_DEBUG_FULL_ERROR:", e);
-  const errorStr = e.toString();
+  const errorMsg = e.message || e.toString();
   
-  // 识别具体的 400 错误类型
-  if (errorStr.includes("API key not valid") || errorStr.includes("INVALID_ARGUMENT")) {
-    return "API Key 无效。请检查：1. Cloudflare 后台变量值是否有引号或空格；2. 是否点击了 'Retry deployment'；3. Key 是否在 Google AI Studio 中被停用。";
+  // 识别特定状态码
+  if (errorMsg.includes("API key not valid") || errorMsg.includes("invalid API key")) {
+    return "Google 验证失败：该 Key 无效或已被封禁。";
+  }
+  if (errorMsg.includes("403")) {
+    return "Google 权限错误 (403)：请在 AI Studio 中确认是否启用了 'Generative Language API'。";
+  }
+  if (errorMsg.includes("429")) {
+    return "配额超限 (429)：当前 Key 访问过于频繁。";
   }
   
-  return `识别服务异常: ${e.message || "未知错误"}`;
+  return `AI 接口返回错误: ${errorMsg}`;
 };
 
 /**
  * 提取图片中的投保人信息
  */
 export async function scanPersonImage(base64Image: string) {
-  const apiKey = getApiKey();
-  if (!apiKey) throw new Error("API 密钥未配置或格式错误。请查看浏览器控制台 (F12) 的错误详情。");
+  const config = getApiKey();
+  if (config.error) throw new Error(config.msg);
 
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: config.key! });
   const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
 
   try {
@@ -89,10 +94,10 @@ export async function scanPersonImage(base64Image: string) {
  * 提取图片中的车辆信息
  */
 export async function scanVehicleImage(base64Image: string) {
-  const apiKey = getApiKey();
-  if (!apiKey) throw new Error("API 密钥未配置或格式错误。");
+  const config = getApiKey();
+  if (config.error) throw new Error(config.msg);
 
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: config.key! });
   const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
 
   try {
