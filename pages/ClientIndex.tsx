@@ -570,7 +570,7 @@ const ClientIndex: React.FC = (): JSX.Element => {
                   onClick={markDocAndNext}
                   className="px-6 py-3 rounded-full text-sm font-black shadow-xl active:scale-95 transition-all bg-jh-header text-white"
                 >
-                  {currentDocIndex === DOCUMENTS.length - 1 ? '已阅读，开始身份验证' : '已阅读，下一条款'}
+                  {currentDocIndex === DOCUMENTS.length - 1 ? '已阅读，进入下一页面' : '已阅读，进入下一条款内容'}
                 </button>
               </div>
             </div>
