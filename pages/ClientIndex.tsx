@@ -59,13 +59,13 @@ const DOCUMENTS: DocItemMeta[] = [
 
 // --- 子组件定义 ---
 
-const TopBanner: React.FC = (): React.ReactElement => (
+const TopBanner: React.FC = () => (
   <div className="w-full bg-white shadow-sm shrink-0 relative z-10">
     <img src="/logo.jpeg" className="w-full h-auto block" alt="China Life Banner" />
   </div>
 );
 
-const Header: React.FC<{ title: string }> = ({ title }): React.ReactElement => (
+const Header: React.FC<{ title: string }> = ({ title }) => (
   <header className="bg-jh-header text-white h-14 flex items-center px-4 sticky top-0 z-50 shadow-md border-b border-white/10">
     <div className="flex items-center gap-3 max-w-full">
       <div className="h-9 w-9 bg-white rounded-xl flex items-center justify-center overflow-hidden shrink-0 border border-white/30 shadow-sm p-1">
@@ -79,7 +79,7 @@ const Header: React.FC<{ title: string }> = ({ title }): React.ReactElement => (
   </header>
 );
 
-const DocItem: React.FC<DocItemProps> = React.memo(({ title, isRead, onClick }): React.ReactElement => (
+const DocItem: React.FC<DocItemProps> = React.memo(({ title, isRead, onClick }) => (
   <div
     onClick={onClick}
     className={`p-4 rounded-2xl border-2 transition-all flex items-center justify-between active:scale-95 cursor-pointer ${isRead ? 'border-jh-header bg-emerald-50' : 'border-gray-100 bg-white hover:border-jh-header/30'}`}
@@ -100,7 +100,7 @@ const DocItem: React.FC<DocItemProps> = React.memo(({ title, isRead, onClick }):
   </div>
 ));
 
-const InfoCard: React.FC<InfoCardProps> = React.memo(({ title, icon, items }): React.ReactElement => (
+const InfoCard: React.FC<InfoCardProps> = React.memo(({ title, icon, items }) => (
   <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 h-full flex flex-col">
     <h3 className="font-black text-gray-800 border-b border-slate-50 pb-4 mb-5 text-xs flex items-center gap-2">
       <span className="w-8 h-8 bg-jh-header/5 text-jh-header rounded-xl flex items-center justify-center text-xs shadow-inner">{icon}</span> {title}
@@ -123,7 +123,7 @@ const InfoCard: React.FC<InfoCardProps> = React.memo(({ title, icon, items }): R
   </div>
 ));
 
-const PaymentBtn: React.FC<PaymentBtnProps> = React.memo(({ type, isActive, onClick }): React.ReactElement => (
+const PaymentBtn: React.FC<PaymentBtnProps> = React.memo(({ type, isActive, onClick }) => (
   <button onClick={onClick} className={`p-6 rounded-[2rem] border-2 flex items-center justify-between transition-all active:scale-95 ${isActive ? (type === 'wechat' ? 'border-jh-green bg-emerald-50' : 'border-blue-500 bg-blue-50') : 'border-slate-50 bg-slate-50/30'}`}>
     <div className="flex items-center gap-4">
       <img src="/jhic.jpeg" className="w-11 h-11 rounded-xl shadow-md border-2 border-white" alt="JHIC" />
@@ -139,7 +139,7 @@ const PaymentBtn: React.FC<PaymentBtnProps> = React.memo(({ type, isActive, onCl
 ));
 
 // --- 独立验证模块 (纯 UI 组件，完全不控制流程) ---
-const VerifyModule: React.FC<{ mobile: string }> = ({ mobile }): React.ReactElement => {
+const VerifyModule: React.FC<{ mobile: string }> = ({ mobile }) => {
   const [code, setCode] = useState('');
   const [counting, setCounting] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -220,7 +220,7 @@ const VerifyModule: React.FC<{ mobile: string }> = ({ mobile }): React.ReactElem
   );
 };
 
-const TermsStep: React.FC<TermsStepProps> = ({ currentDocIndex, documents, readDocs, onNext, onPrev, onMarkRead, onSkip }): React.ReactElement => {
+const TermsStep: React.FC<TermsStepProps> = ({ currentDocIndex, documents, readDocs, onNext, onPrev, onMarkRead, onSkip }) => {
   const currentDoc = documents[currentDocIndex];
   const isCurrentRead = readDocs[currentDocIndex];
   const isLastDoc = currentDocIndex === documents.length - 1;
@@ -282,7 +282,7 @@ const TermsStep: React.FC<TermsStepProps> = ({ currentDocIndex, documents, readD
   );
 };
 
-const CheckStep: React.FC<CheckStepProps> = ({ onComplete, data }): React.ReactElement => {
+const CheckStep: React.FC<CheckStepProps> = ({ onComplete, data }) => {
   const [cardIndex, setCardIndex] = useState(0);
   const touchStart = useRef<number | null>(null);
 
@@ -383,7 +383,7 @@ const CheckStep: React.FC<CheckStepProps> = ({ onComplete, data }): React.ReactE
   );
 };
 
-const SignStep: React.FC<SignStepProps> = ({ onComplete }): React.ReactElement => {
+const SignStep: React.FC<SignStepProps> = ({ onComplete }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -484,7 +484,7 @@ const SignStep: React.FC<SignStepProps> = ({ onComplete }): React.ReactElement =
   );
 };
 
-const PayStep: React.FC<PayStepProps> = ({ data }): React.ReactElement => {
+const PayStep: React.FC<PayStepProps> = ({ data }) => {
   const [method, setMethod] = useState<'wechat' | 'alipay'>('wechat');
 
   const handleAlipay = () => {
@@ -549,7 +549,7 @@ const PayStep: React.FC<PayStepProps> = ({ data }): React.ReactElement => {
   );
 };
 
-const ClientIndex: React.FC = (): React.ReactElement => {
+const ClientIndex: React.FC = () => {
   const location = useLocation();
   // 初始步骤强制为 'terms'，完全跳过验证步骤
   const [step, setStep] = useState<Step>('terms');
