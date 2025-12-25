@@ -204,10 +204,12 @@ const CheckStep: React.FC<CheckStepProps> = ({ onComplete, data }): React.ReactE
   }, []);
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (!e.touches || e.touches.length === 0) return;
     touchStart.current = e.touches[0].clientX;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!e.changedTouches || e.changedTouches.length === 0) return;
     if (touchStart.current === null) return;
     const touchEnd = e.changedTouches[0].clientX;
     const diff = touchStart.current - touchEnd;
