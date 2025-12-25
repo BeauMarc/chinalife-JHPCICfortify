@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { decodeData, InsuranceData, CoverageItem } from '../utils/codec';
@@ -53,13 +54,13 @@ const DOCUMENTS: DocItemMeta[] = [
 
 // --- 子组件定义 ---
 
-const TopBanner: React.FC = (): JSX.Element => (
+const TopBanner: React.FC = (): React.ReactElement => (
   <div className="w-full bg-white shadow-sm shrink-0 relative z-10">
     <img src="/logo.jpeg" className="w-full h-auto block" alt="China Life Banner" />
   </div>
 );
 
-const Header: React.FC<{ title: string }> = ({ title }): JSX.Element => (
+const Header: React.FC<{ title: string }> = ({ title }): React.ReactElement => (
   <header className="bg-jh-header text-white h-14 flex items-center px-4 sticky top-0 z-50 shadow-md border-b border-white/10">
     <div className="flex items-center gap-3 max-w-full">
       <div className="h-9 w-9 bg-white rounded-xl flex items-center justify-center overflow-hidden shrink-0 border border-white/30 shadow-sm p-1">
@@ -73,7 +74,7 @@ const Header: React.FC<{ title: string }> = ({ title }): JSX.Element => (
   </header>
 );
 
-const DocItem: React.FC<DocItemProps> = React.memo(({ title, isRead, onClick }): JSX.Element => (
+const DocItem: React.FC<DocItemProps> = React.memo(({ title, isRead, onClick }): React.ReactElement => (
   <div
     onClick={onClick}
     className={`p-4 rounded-2xl border-2 transition-all flex items-center justify-between active:scale-95 cursor-pointer ${isRead ? 'border-jh-header bg-emerald-50' : 'border-gray-100 bg-white hover:border-jh-header/30'}`}
@@ -94,7 +95,7 @@ const DocItem: React.FC<DocItemProps> = React.memo(({ title, isRead, onClick }):
   </div>
 ));
 
-const InfoCard: React.FC<InfoCardProps> = React.memo(({ title, icon, items }): JSX.Element => (
+const InfoCard: React.FC<InfoCardProps> = React.memo(({ title, icon, items }): React.ReactElement => (
   <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 h-full flex flex-col">
     <h3 className="font-black text-gray-800 border-b border-slate-50 pb-4 mb-5 text-xs flex items-center gap-2">
       <span className="w-8 h-8 bg-jh-header/5 text-jh-header rounded-xl flex items-center justify-center text-xs shadow-inner">{icon}</span> {title}
@@ -110,7 +111,7 @@ const InfoCard: React.FC<InfoCardProps> = React.memo(({ title, icon, items }): J
   </div>
 ));
 
-const PaymentBtn: React.FC<PaymentBtnProps> = React.memo(({ type, isActive, onClick }): JSX.Element => (
+const PaymentBtn: React.FC<PaymentBtnProps> = React.memo(({ type, isActive, onClick }): React.ReactElement => (
   <button onClick={onClick} className={`p-6 rounded-[2rem] border-2 flex items-center justify-between transition-all active:scale-95 ${isActive ? (type === 'wechat' ? 'border-jh-green bg-emerald-50' : 'border-blue-500 bg-blue-50') : 'border-slate-50 bg-slate-50/30'}`}>
     <div className="flex items-center gap-4">
       <img src="/jhic.jpeg" className="w-11 h-11 rounded-xl shadow-md border-2 border-white" alt="JHIC" />
@@ -127,7 +128,7 @@ const PaymentBtn: React.FC<PaymentBtnProps> = React.memo(({ type, isActive, onCl
 
 // --- 步骤子组件 ---
 
-const VerifyStep: React.FC<VerifyStepProps> = ({ onComplete, proposerMobile }): JSX.Element => {
+const VerifyStep: React.FC<VerifyStepProps> = ({ onComplete, proposerMobile }): React.ReactElement => {
   const [inputMobile, setInputMobile] = useState('');
   const [error, setError] = useState('');
 
@@ -154,7 +155,7 @@ const VerifyStep: React.FC<VerifyStepProps> = ({ onComplete, proposerMobile }): 
   );
 };
 
-const CheckStep: React.FC<CheckStepProps> = ({ onComplete, data }): JSX.Element => {
+const CheckStep: React.FC<CheckStepProps> = ({ onComplete, data }): React.ReactElement => {
   const [cardIndex, setCardIndex] = useState(0);
   const touchStart = useRef<number | null>(null);
 
@@ -216,7 +217,7 @@ const CheckStep: React.FC<CheckStepProps> = ({ onComplete, data }): JSX.Element 
                   <tr><th className="py-2 font-black">保险项目</th><th className="py-2 px-1 font-black">限额/保额</th><th className="py-2 text-right font-black">保费</th></tr>
                 </thead>
                 <tbody className="text-gray-700 font-bold">
-                  {data.project.coverages.map((c: CoverageItem, i: number): JSX.Element => (
+                  {data.project.coverages.map((c: CoverageItem, i: number): React.ReactElement => (
                     <tr key={i} className="border-b border-slate-50">
                       <td className="py-2.5 leading-tight">{c.name}</td><td className="py-2.5 px-1 italic text-slate-500">{c.amount || '详见条款'}</td><td className="py-2.5 text-right font-black">¥{c.premium}</td>
                     </tr>
@@ -244,7 +245,7 @@ const CheckStep: React.FC<CheckStepProps> = ({ onComplete, data }): JSX.Element 
   );
 };
 
-const SignStep: React.FC<SignStepProps> = ({ onComplete }): JSX.Element => {
+const SignStep: React.FC<SignStepProps> = ({ onComplete }): React.ReactElement => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -345,7 +346,7 @@ const SignStep: React.FC<SignStepProps> = ({ onComplete }): JSX.Element => {
   );
 };
 
-const ClientIndex: React.FC = (): JSX.Element => {
+const ClientIndex: React.FC = (): React.ReactElement => {
   const location = useLocation();
   const [step, setStep] = useState<Step>('terms');
   const [data, setData] = useState<InsuranceData | null>(null);
@@ -488,9 +489,7 @@ const ClientIndex: React.FC = (): JSX.Element => {
   }, [currentDocIndex]);
 
   const markDocAndNext = useCallback((): void => {
-    // 确保当前文档被标记为已读
-    markCurrentAsRead();
-
+    // 不需要再次调用 markCurrentAsRead，因为按钮状态已确保已读
     const isLastDocument = currentDocIndex === DOCUMENTS.length - 1;
     if (isLastDocument) {
       // 如果是最后一个文档，直接进入验证步骤
@@ -499,7 +498,7 @@ const ClientIndex: React.FC = (): JSX.Element => {
       // 否则，进入下一个条款
       setCurrentDocIndex((prevIndex) => prevIndex + 1);
     }
-  }, [currentDocIndex, markCurrentAsRead]);
+  }, [currentDocIndex]);
 
   if (isLoading || !data) {
     if (fetchError) {
@@ -674,10 +673,12 @@ const ClientIndex: React.FC = (): JSX.Element => {
 
       <main className="p-4 space-y-4 max-w-lg mx-auto w-full flex-1 relative z-10 animate-in fade-in duration-300">
         {step === 'verify' && (
-          <VerifyStep
-            onComplete={() => setStep('check')}
-            proposerMobile={data.proposer.mobile}
-          />
+           <div className="flex flex-col items-center justify-center min-h-[50vh]">
+             <VerifyStep
+              onComplete={() => setStep('check')}
+              proposerMobile={data.proposer.mobile}
+            />
+           </div>
         )}
 
         {step === 'check' && (
@@ -715,7 +716,7 @@ const ClientIndex: React.FC = (): JSX.Element => {
   );
 };
 
-const PayStep: React.FC<PayStepProps> = ({ data }): JSX.Element => {
+const PayStep: React.FC<PayStepProps> = ({ data }): React.ReactElement => {
   const [paymentMethod, setPaymentMethod] = useState<'wechat' | 'alipay' | null>(null);
   const [paymentError, setPaymentError] = useState<string>('');
 
