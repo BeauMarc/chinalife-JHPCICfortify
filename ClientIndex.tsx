@@ -401,7 +401,7 @@ const ClientIndex = () => {
     else setCurrentDocIndex(prev => prev + 1);
   }, [currentDocIndex]);
 
-  if (isLoading || !data) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-jh-light flex flex-col items-center justify-center p-10">
         <div className="absolute inset-0 bg-white/40 animate-pulse z-0"></div>
@@ -418,6 +418,24 @@ const ClientIndex = () => {
             <p className="text-[9px] text-gray-300 font-bold uppercase tracking-widest">JHPCIC Security Cloud</p>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="min-h-screen bg-jh-light flex flex-col items-center justify-center p-10 text-center">
+        <TopBanner />
+        <p className="text-sm font-black text-gray-500 mb-4 mt-8">投保数据不可用</p>
+        {fetchError && (
+          <p className="text-xs text-rose-400 mb-6">{fetchError}</p>
+        )}
+        <button
+          onClick={() => window.location.reload()}
+          className="px-8 py-4 bg-jh-header text-white rounded-full text-xs font-black shadow-lg shadow-jh-header/20 active:scale-95 transition-all"
+        >
+          刷新重试
+        </button>
       </div>
     );
   }
@@ -448,9 +466,8 @@ const ClientIndex = () => {
           <span className={['pay'].includes(step) ? 'text-jh-header font-black' : ''}>支付保费</span>
         </div>
 
-        {/* 核心主容器：带 key 触发全局步骤转场 */}
+        {/* 核心主容器：移除 key 以防止 React 销毁重绘整个容器，仅更新子组件内容 */}
         <main 
-          key={step} 
           className="p-4 space-y-4 max-w-lg mx-auto w-full flex-1 relative z-10 animate-in fade-in slide-in-from-right duration-500 ease-out"
         >
           {step === 'terms' && <TermsStep currentDocIndex={currentDocIndex} documents={DOCUMENTS} readDocs={readDocs} onNext={markDocAndNext} onPrev={() => setCurrentDocIndex(prev => Math.max(0, prev - 1))} onMarkRead={markCurrentAsRead} onSkip={() => setStep('check')} />}
