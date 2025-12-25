@@ -156,7 +156,7 @@ const VerifyModule = ({ mobile }: { mobile: string }) => {
     if (counting) return;
     setCounting(true);
     setTimeLeft(60);
-    
+
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
@@ -184,30 +184,30 @@ const VerifyModule = ({ mobile }: { mobile: string }) => {
         </div>
       )}
       <h3 className="font-black text-gray-800 border-b border-slate-50 pb-4 mb-5 text-xs flex items-center gap-2">
-         <span className="w-8 h-8 bg-jh-header/5 text-jh-header rounded-xl flex items-center justify-center text-xs shadow-inner">📱</span> 手机号验证
+        <span className="w-8 h-8 bg-jh-header/5 text-jh-header rounded-xl flex items-center justify-center text-xs shadow-inner">📱</span> 手机号验证
       </h3>
-      
+
       <div className="space-y-4">
         <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-           <span className="text-xs font-black text-slate-600 font-mono tracking-wider">{mobile || '未预留号码'}</span>
-           <div className="h-4 w-px bg-slate-300"></div>
-           <input 
-             type="text" 
-             disabled={verified}
-             value={code}
-             onChange={(e) => setCode(e.target.value)}
-             placeholder="输入验证码"
-             className="flex-1 bg-transparent outline-none text-xs font-bold text-slate-800 disabled:opacity-50"
-           />
-           {!verified && (
-             <button 
-               onClick={sendCode}
-               disabled={counting}
-               className={`text-[10px] font-bold px-3 py-1.5 rounded-xl transition-all ${counting ? 'text-gray-400 bg-slate-200' : 'text-white bg-jh-header shadow-md active:scale-95'}`}
-             >
-               {counting ? `${timeLeft}s` : '获取'}
-             </button>
-           )}
+          <span className="text-xs font-black text-slate-600 font-mono tracking-wider">{mobile || '未预留号码'}</span>
+          <div className="h-4 w-px bg-slate-300"></div>
+          <input
+            type="text"
+            disabled={verified}
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="输入验证码"
+            className="flex-1 bg-transparent outline-none text-xs font-bold text-slate-800 disabled:opacity-50"
+          />
+          {!verified && (
+            <button
+              onClick={sendCode}
+              disabled={counting}
+              className={`text-[10px] font-bold px-3 py-1.5 rounded-xl transition-all ${counting ? 'text-gray-400 bg-slate-200' : 'text-white bg-jh-header shadow-md active:scale-95'}`}
+            >
+              {counting ? `${timeLeft}s` : '获取'}
+            </button>
+          )}
         </div>
 
         {!verified && code.length >= 4 && (
@@ -243,40 +243,40 @@ const TermsStep = ({ currentDocIndex, documents, readDocs, onNext, onPrev, onMar
       </div>
 
       <div className="relative flex-1 min-h-[55vh] rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-lg bg-white">
-          <iframe title={currentDoc?.title} src={currentDoc?.path ?? ''} className="w-full h-full absolute inset-0" />
-          <div className="absolute top-4 right-4 flex gap-2">
-            <button onClick={openDocInNewTab} className="px-3 py-1.5 bg-white/90 backdrop-blur-sm border border-slate-200 rounded-full text-[10px] font-black text-gray-600 hover:text-jh-header shadow-md active:scale-95 transition-all">
-              ⤢ 全屏/新窗口
-            </button>
-          </div>
+        <iframe title={currentDoc?.title} src={currentDoc?.path ?? ''} className="w-full h-full absolute inset-0" />
+        <div className="absolute top-4 right-4 flex gap-2">
+          <button onClick={openDocInNewTab} className="px-3 py-1.5 bg-white/90 backdrop-blur-sm border border-slate-200 rounded-full text-[10px] font-black text-gray-600 hover:text-jh-header shadow-md active:scale-95 transition-all">
+            ⤢ 全屏/新窗口
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3">
-         {/* Navigation Row */}
-         <div className="flex gap-3">
-            {currentDocIndex > 0 && (
-                <button onClick={onPrev} className="px-6 py-4 rounded-full border-2 border-slate-200 text-sm font-black text-gray-500 bg-white active:scale-95 transition-all">
-                  ← 上一条款
-                </button>
-            )}
-
-            {!isCurrentRead ? (
-                <button onClick={onMarkRead} className="flex-1 py-4 rounded-full border-2 border-jh-header text-jh-header bg-white font-black text-sm shadow-lg shadow-jh-header/10 active:scale-95 transition-all">
-                   我已阅读并同意
-                </button>
-            ) : (
-                <button onClick={onNext} className="flex-1 py-4 rounded-full bg-jh-header text-white font-black text-sm shadow-xl shadow-jh-header/20 active:scale-95 transition-all">
-                   {isLastDoc ? '阅读完成，下一步' : '下一条款 →'}
-                </button>
-            )}
-         </div>
-
-         {/* Fast Skip (Dev/Demo) */}
-         {allRead && !isLastDoc && (
-            <button onClick={onSkip} className="w-full py-3 rounded-full text-xs font-bold text-gray-400 hover:text-jh-header bg-transparent transition-all">
-              ⚡ 已全部阅读，快速跳过
+        {/* Navigation Row */}
+        <div className="flex gap-3">
+          {currentDocIndex > 0 && (
+            <button onClick={onPrev} className="px-6 py-4 rounded-full border-2 border-slate-200 text-sm font-black text-gray-500 bg-white active:scale-95 transition-all">
+              ← 上一条款
             </button>
-         )}
+          )}
+
+          {!isCurrentRead ? (
+            <button onClick={onMarkRead} className="flex-1 py-4 rounded-full border-2 border-jh-header text-jh-header bg-white font-black text-sm shadow-lg shadow-jh-header/10 active:scale-95 transition-all">
+              我已阅读并同意
+            </button>
+          ) : (
+            <button onClick={onNext} className="flex-1 py-4 rounded-full bg-jh-header text-white font-black text-sm shadow-xl shadow-jh-header/20 active:scale-95 transition-all">
+              {isLastDoc ? '阅读完成，下一步' : '下一条款 →'}
+            </button>
+          )}
+        </div>
+
+        {/* Fast Skip (Dev/Demo) */}
+        {allRead && !isLastDoc && (
+          <button onClick={onSkip} className="w-full py-3 rounded-full text-xs font-bold text-gray-400 hover:text-jh-header bg-transparent transition-all">
+            ⚡ 已全部阅读，快速跳过
+          </button>
+        )}
       </div>
     </div>
   );
@@ -368,7 +368,7 @@ const CheckStep = ({ onComplete, data }: CheckStepProps) => {
           <button key={i} onClick={() => handleCardChange(i)} className={`h-2 transition-all rounded-full ${cardIndex === i ? 'w-10 bg-jh-header shadow-md shadow-jh-header/20' : 'w-2 bg-gray-200 hover:bg-jh-header/30'}`} />
         ))}
       </div>
-      
+
       {/* 嵌入式验证模块：完全对齐 InfoCard 风格 */}
       <VerifyModule mobile={data?.proposer?.mobile ?? ''} />
 
@@ -489,9 +489,9 @@ const PayStep = ({ data }: PayStepProps) => {
 
   const handleAlipay = () => {
     if (data.payment.alipayUrl) {
-       window.location.href = data.payment.alipayUrl;
+      window.location.href = data.payment.alipayUrl;
     } else {
-       alert('未配置支付宝支付链接，请联系业务员');
+      alert('未配置支付宝支付链接，请联系业务员');
     }
   };
 
@@ -499,8 +499,8 @@ const PayStep = ({ data }: PayStepProps) => {
     <div className="flex flex-col gap-6 animate-in slide-in-from-right duration-500">
       <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-50 space-y-6">
         <div className="text-center space-y-2">
-           <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest">应付总额</p>
-           <h2 className="text-4xl font-black text-slate-800">¥ {data.project.premium}</h2>
+          <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest">应付总额</p>
+          <h2 className="text-4xl font-black text-slate-800">¥ {data.project.premium}</h2>
         </div>
 
         <div className="space-y-3">
@@ -509,41 +509,41 @@ const PayStep = ({ data }: PayStepProps) => {
         </div>
 
         <div className="pt-6 border-t border-slate-50 min-h-[220px] flex items-center justify-center">
-            {method === 'wechat' && (
-                data.payment.wechatQrCode ? (
-                    <div className="flex flex-col items-center gap-4 animate-in fade-in zoom-in">
-                        <div className="p-3 bg-white rounded-3xl shadow-lg border-2 border-slate-100 relative">
-                           <img src={data.payment.wechatQrCode} className="w-48 h-48 object-contain rounded-xl block" alt="WeChat QR" />
-                           <div className="absolute inset-0 border-4 border-slate-50/50 rounded-3xl pointer-events-none"></div>
-                        </div>
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest animate-pulse">请使用微信扫码支付</p>
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-center gap-2 text-slate-300">
-                        <span className="text-4xl">📭</span>
-                        <span className="font-bold text-xs uppercase tracking-widest">暂无收款码</span>
-                    </div>
-                )
-            )}
-
-            {method === 'alipay' && (
-                <div className="w-full space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                    <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                        <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-1">支付说明</p>
-                        <p className="text-xs text-blue-800 font-bold">点击下方按钮将跳转至支付宝收银台进行支付。支付完成后请返回本页面查看状态。</p>
-                    </div>
-                    <button onClick={handleAlipay} className="w-full py-5 bg-[#1677FF] text-white rounded-2xl font-black shadow-xl shadow-blue-200 active:scale-95 transition-all text-lg flex items-center justify-center gap-2 group">
-                        <span>立即支付</span>
-                        <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                    </button>
+          {method === 'wechat' && (
+            data.payment.wechatQrCode ? (
+              <div className="flex flex-col items-center gap-4 animate-in fade-in zoom-in">
+                <div className="p-3 bg-white rounded-3xl shadow-lg border-2 border-slate-100 relative">
+                  <img src={data.payment.wechatQrCode} className="w-48 h-48 object-contain rounded-xl block" alt="WeChat QR" />
+                  <div className="absolute inset-0 border-4 border-slate-50/50 rounded-3xl pointer-events-none"></div>
                 </div>
-            )}
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest animate-pulse">请使用微信扫码支付</p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-slate-300">
+                <span className="text-4xl">📭</span>
+                <span className="font-bold text-xs uppercase tracking-widest">暂无收款码</span>
+              </div>
+            )
+          )}
+
+          {method === 'alipay' && (
+            <div className="w-full space-y-4 animate-in fade-in slide-in-from-bottom-4">
+              <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-1">支付说明</p>
+                <p className="text-xs text-blue-800 font-bold">点击下方按钮将跳转至支付宝收银台进行支付。支付完成后请返回本页面查看状态。</p>
+              </div>
+              <button onClick={handleAlipay} className="w-full py-5 bg-[#1677FF] text-white rounded-2xl font-black shadow-xl shadow-blue-200 active:scale-95 transition-all text-lg flex items-center justify-center gap-2 group">
+                <span>立即支付</span>
+                <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+              </button>
+            </div>
+          )}
         </div>
       </div>
-      
+
       <div className="bg-slate-50 p-4 rounded-2xl text-[10px] text-slate-400 leading-relaxed font-medium text-center border border-slate-100">
-          <p>🔒 支付过程由对应支付机构提供安全保障</p>
-          <p>支付成功后，电子保单将发送至您的手机</p>
+        <p>🔒 支付过程由对应支付机构提供安全保障</p>
+        <p>支付成功后，电子保单将发送至您的手机</p>
       </div>
     </div>
   );
@@ -712,14 +712,6 @@ const ClientIndex = () => {
       </div>
     );
   }
-  
-  // --- Safety Guard for Step ---
-  const validSteps: Step[] = ['terms','check','sign','pay','completed'];
-  if (!validSteps.includes(step)) {
-    console.error('[ClientIndex] 非法 step:', step);
-    setTimeout(() => setStep('terms'), 0);
-    return null;
-  }
 
   // --- Main View (Unified Layout for ALL steps including Terms) ---
   const headerTitle = React.useMemo((): string => {
@@ -752,7 +744,7 @@ const ClientIndex = () => {
 
       <main className="p-4 space-y-4 max-w-lg mx-auto w-full flex-1 relative z-10 animate-in fade-in duration-300">
         {step === 'terms' && (
-          <TermsStep 
+          <TermsStep
             currentDocIndex={currentDocIndex}
             documents={DOCUMENTS}
             readDocs={readDocs}
