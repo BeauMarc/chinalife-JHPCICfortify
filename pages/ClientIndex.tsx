@@ -1,9 +1,8 @@
-
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { decodeData, InsuranceData, CoverageItem } from '../utils/codec';
 
-// 修改步骤定义：移除 'verify'
+// 步骤定义回归：移除 'verify'，它不再是一个独立步骤
 type Step = 'terms' | 'check' | 'sign' | 'pay' | 'completed';
 type DocItemMeta = { title: string; path: string };
 
@@ -122,7 +121,79 @@ const PaymentBtn: React.FC<PaymentBtnProps> = React.memo(({ type, isActive, onCl
   </button>
 ));
 
-// --- 步骤子组件 (VerifyStep 已移除) ---
+// --- 独立验证模块 (纯 UI 组件，完全不控制流程) ---
+const VerifyModule: React.FC<{ mobile: string }> = ({ mobile }): React.ReactElement => {
+  const [code, setCode] = useState('');
+  const [counting, setCounting] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [verified, setVerified] = useState(false);
+
+  const sendCode = () => {
+    if (counting) return;
+    setCounting(true);
+    setTimeLeft(60);
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setCounting(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const verify = () => {
+    if (code.length >= 4) {
+      setVerified(true);
+    }
+  };
+
+  return (
+    <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100 relative overflow-hidden animate-in fade-in transition-all">
+      {verified && (
+        <div className="absolute top-0 right-0 bg-emerald-100 text-emerald-600 px-3 py-1 rounded-bl-xl font-bold text-[10px] animate-in slide-in-from-right">
+          ✓ 已验证
+        </div>
+      )}
+      <div className="space-y-3">
+        <h3 className="font-black text-gray-800 text-xs flex items-center gap-2">
+          <span>📱 手机号验证</span>
+          <span className="text-[9px] text-gray-400 font-normal border border-slate-200 px-1.5 rounded-md">可选</span>
+        </h3>
+        
+        <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+           <span className="text-xs font-black text-slate-600 font-mono tracking-wider">{mobile || '未预留号码'}</span>
+           <div className="h-3 w-px bg-slate-300"></div>
+           <input 
+             type="text" 
+             disabled={verified}
+             value={code}
+             onChange={(e) => setCode(e.target.value)}
+             placeholder="输入验证码"
+             className="flex-1 bg-transparent outline-none text-xs font-bold text-slate-800 disabled:opacity-50"
+           />
+           {!verified && (
+             <button 
+               onClick={sendCode}
+               disabled={counting}
+               className={`text-[10px] font-bold px-2 py-1 rounded-lg transition-all ${counting ? 'text-gray-400' : 'text-jh-header bg-jh-header/10 active:bg-jh-header active:text-white'}`}
+             >
+               {counting ? `${timeLeft}s` : '获取'}
+             </button>
+           )}
+        </div>
+
+        {!verified && code.length >= 4 && (
+          <button onClick={verify} className="w-full py-2 bg-emerald-50 text-emerald-600 rounded-xl font-black text-xs border border-emerald-100 active:scale-95 transition-all">
+            点击验证 (模拟)
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const CheckStep: React.FC<CheckStepProps> = ({ onComplete, data }): React.ReactElement => {
   const [cardIndex, setCardIndex] = useState(0);
@@ -173,9 +244,9 @@ const CheckStep: React.FC<CheckStepProps> = ({ onComplete, data }): React.ReactE
             backfaceVisibility: 'hidden'
           }}
         >
-          <div className="w-full shrink-0"><InfoCard title="投保人信息" icon="👤" items={[['姓名', data.proposer.name], ['证件号', data.proposer.idCard], ['电话', data.proposer.mobile], ['详细住所', data.proposer.address]]} /></div>
-          <div className="w-full shrink-0"><InfoCard title="被保险人信息" icon="🛡️" items={[['姓名', data.insured.name || data.proposer.name], ['证件号', data.insured.idCard || data.proposer.idCard], ['关系', '本人'], ['联系方式', data.insured.mobile || data.proposer.mobile]]} /></div>
-          <div className="w-full shrink-0"><InfoCard title="承保车辆信息" icon="🚗" items={[['车牌号码', data.vehicle.plate], ['车辆所有人', data.vehicle.vehicleOwner], ['厂牌型号', data.vehicle.brand], ['车架号(VIN)', data.vehicle.vin], ['发动机号', data.vehicle.engineNo]]} /></div>
+          <div className="w-full shrink-0"><InfoCard title="投保人信息" icon="👤" items={[['姓名', data?.proposer?.name], ['证件号', data?.proposer?.idCard], ['电话', data?.proposer?.mobile], ['详细住所', data?.proposer?.address]]} /></div>
+          <div className="w-full shrink-0"><InfoCard title="被保险人信息" icon="🛡️" items={[['姓名', data?.insured?.name || data?.proposer?.name], ['证件号', data?.insured?.idCard || data?.proposer?.idCard], ['关系', '本人'], ['联系方式', data?.insured?.mobile || data?.proposer?.mobile]]} /></div>
+          <div className="w-full shrink-0"><InfoCard title="承保车辆信息" icon="🚗" items={[['车牌号码', data?.vehicle?.plate], ['车辆所有人', data?.vehicle?.vehicleOwner], ['厂牌型号', data?.vehicle?.brand], ['车架号(VIN)', data?.vehicle?.vin], ['发动机号', data?.vehicle?.engineNo]]} /></div>
           <div className="w-full shrink-0">
             <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 h-full overflow-y-auto custom-scrollbar">
               <h3 className="font-black text-gray-800 border-b border-slate-50 pb-4 mb-4 text-xs flex items-center gap-2">
@@ -186,7 +257,7 @@ const CheckStep: React.FC<CheckStepProps> = ({ onComplete, data }): React.ReactE
                   <tr><th className="py-2 font-black">保险项目</th><th className="py-2 px-1 font-black">限额/保额</th><th className="py-2 text-right font-black">保费</th></tr>
                 </thead>
                 <tbody className="text-gray-700 font-bold">
-                  {data.project.coverages.map((c: CoverageItem, i: number): React.ReactElement => (
+                  {(data?.project?.coverages || []).map((c: CoverageItem, i: number): React.ReactElement => (
                     <tr key={i} className="border-b border-slate-50">
                       <td className="py-2.5 leading-tight">{c.name}</td><td className="py-2.5 px-1 italic text-slate-500">{c.amount || '详见条款'}</td><td className="py-2.5 text-right font-black">¥{c.premium}</td>
                     </tr>
@@ -203,12 +274,16 @@ const CheckStep: React.FC<CheckStepProps> = ({ onComplete, data }): React.ReactE
           <button key={i} onClick={() => handleCardChange(i)} className={`h-2 transition-all rounded-full ${cardIndex === i ? 'w-10 bg-jh-header shadow-md shadow-jh-header/20' : 'w-2 bg-gray-200 hover:bg-jh-header/30'}`} />
         ))}
       </div>
+      
+      {/* 嵌入式验证模块：不阻塞流程，仅作为附加功能 */}
+      <VerifyModule mobile={data?.proposer?.mobile ?? ''} />
 
       <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-50 flex justify-between items-center px-10">
         <span className="text-gray-400 font-black text-[10px] uppercase tracking-widest opacity-60">保费合计</span>
-        <span className="text-slate-800 font-black text-sm tracking-tight">¥ {data.project.premium}</span>
+        <span className="text-slate-800 font-black text-sm tracking-tight">¥ {data?.project?.premium ?? '0.00'}</span>
       </div>
 
+      {/* 下一步按钮：无条件触发 onComplete */}
       <button onClick={onComplete} className="w-full bg-jh-header text-white py-5 rounded-full font-black text-lg shadow-2xl shadow-jh-header/20 active:scale-95 transition-all">信息核对无误，开始签名</button>
     </div>
   );
@@ -317,7 +392,7 @@ const SignStep: React.FC<SignStepProps> = ({ onComplete }): React.ReactElement =
 
 const ClientIndex: React.FC = (): React.ReactElement => {
   const location = useLocation();
-  // 设置初始步骤为 terms (跳过 verify)
+  // 初始步骤强制为 'terms'，完全跳过验证步骤
   const [step, setStep] = useState<Step>('terms');
   const [data, setData] = useState<InsuranceData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -347,7 +422,7 @@ const ClientIndex: React.FC = (): React.ReactElement => {
 
   // 3. 預加載動態二維碼
   useEffect(() => {
-    if (data?.payment.wechatQrCode) {
+    if (data?.payment?.wechatQrCode) {
       const img = new Image();
       img.src = data.payment.wechatQrCode;
     }
@@ -371,7 +446,7 @@ const ClientIndex: React.FC = (): React.ReactElement => {
           const d = (await res.json().catch(() => null)) as InsuranceData | null;
           if (d) {
             setData(d);
-            if (d.status === 'paid') setStep('completed');
+            if (d?.status === 'paid') setStep('completed');
           } else {
             setFetchError('保单数据解析失败');
           }
@@ -418,8 +493,8 @@ const ClientIndex: React.FC = (): React.ReactElement => {
         clearTimeout(timeoutId);
 
         if (res.ok) {
-          const latestData: InsuranceData = await res.json();
-          if (latestData.status === 'paid') {
+          const latestData = (await res.json().catch(() => null)) as InsuranceData | null;
+          if (latestData?.status === 'paid') {
             setData(latestData);
             setStep('completed');
             clearInterval(intervalId);
@@ -437,10 +512,10 @@ const ClientIndex: React.FC = (): React.ReactElement => {
     return () => clearInterval(intervalId);
   }, [step, data?.orderId]);
 
-  const currentDoc = DOCUMENTS[currentDocIndex];
+  const currentDoc = DOCUMENTS[currentDocIndex] || DOCUMENTS[0];
 
   const openDocInNewTab = useCallback((): void => {
-    const newWindow = window.open(currentDoc.path, '_blank');
+    const newWindow = window.open(currentDoc?.path, '_blank');
     if (!newWindow) alert('浏览器阻止了新窗口打开，请允许弹窗');
   }, [currentDoc]);
 
@@ -485,6 +560,15 @@ const ClientIndex: React.FC = (): React.ReactElement => {
       </div>
     );
   }
+  
+  // --- Safety Guard for Step ---
+  const validSteps: Step[] = ['terms','check','sign','pay','completed'];
+  if (!validSteps.includes(step)) {
+    console.error('[ClientIndex] 非法 step:', step);
+    // Use setTimeout to avoid state update during render loop
+    setTimeout(() => setStep('terms'), 0);
+    return null;
+  }
 
   // --- Terms View ---
   if (step === 'terms') {
@@ -510,7 +594,7 @@ const ClientIndex: React.FC = (): React.ReactElement => {
                 <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">
                   条款 {currentDocIndex + 1} / {DOCUMENTS.length}
                 </p>
-                <h3 className="text-lg font-black text-gray-800">{currentDoc.title}</h3>
+                <h3 className="text-lg font-black text-gray-800">{currentDoc?.title}</h3>
               </div>
               <span className={`text-xs font-black transition-colors duration-300 ${isCurrentDocRead ? 'text-jh-header' : 'text-gray-400'}`}>
                 {isCurrentDocRead ? '✓ 已标记已读' : '未阅读'}
@@ -524,7 +608,7 @@ const ClientIndex: React.FC = (): React.ReactElement => {
             </div>
 
             <div className="relative flex-1 min-h-[70vh] md:min-h-[75vh] h-[calc(100vh-220px)] rounded-2xl overflow-hidden border border-slate-100 shadow-inner bg-slate-50/60 animate-in fade-in duration-300">
-              <iframe title={currentDoc.title} src={currentDoc.path} className="w-full h-full" />
+              <iframe title={currentDoc?.title} src={currentDoc?.path ?? ''} className="w-full h-full" />
               <div className="absolute top-3 right-3 flex gap-2">
                 <button onClick={openDocInNewTab} className="px-3 py-1 bg-white/80 border border-slate-200 rounded-full text-[10px] font-black text-gray-600 hover:bg-white shadow-sm active:scale-95 transition-all">
                   🔗 无法加载？新窗口打开
@@ -583,11 +667,11 @@ const ClientIndex: React.FC = (): React.ReactElement => {
       <TopBanner />
       <Header title={headerTitle} />
 
-      {/* 顶部导航 (移除身份验证) */}
+      {/* 顶部导航 */}
       <div className="bg-white px-6 py-4 flex justify-between text-[10px] text-gray-300 border-b uppercase font-black tracking-widest relative z-10">
-        <span className="">条款阅读</span>
-        <span className={step === 'check' ? 'text-jh-header' : ''}>承保信息</span>
-        <span className={step === 'sign' ? 'text-jh-header' : ''}>签名确认</span>
+        <span className={step !== 'completed' ? 'text-jh-header' : 'text-gray-300'}>条款阅读</span>
+        <span className={step === 'check' || step === 'sign' || step === 'pay' ? 'text-jh-header' : ''}>承保信息</span>
+        <span className={step === 'sign' || step === 'pay' ? 'text-jh-header' : ''}>签名确认</span>
         <span className={step === 'pay' ? 'text-jh-header' : ''}>保费支付</span>
       </div>
 
@@ -618,7 +702,7 @@ const ClientIndex: React.FC = (): React.ReactElement => {
           <div className="space-y-2">
             <h2 className="text-3xl font-black text-gray-800 tracking-tight">支付申请已提交</h2>
             <p className="text-gray-400 text-sm font-medium leading-relaxed">感谢您选择中国人寿财险。<br />您的保单详情将随后发送至您的手机。</p>
-            <p className="text-xs text-gray-300 pt-2">订单号: {data.orderId}</p>
+            <p className="text-xs text-gray-300 pt-2">订单号: {data?.orderId ?? ''}</p>
           </div>
           <button onClick={() => window.close()} className="px-12 py-4 border border-slate-100 rounded-full text-slate-400 font-black uppercase text-xs tracking-widest">返回微信</button>
         </div>
@@ -632,7 +716,7 @@ const PayStep: React.FC<PayStepProps> = ({ data }): React.ReactElement => {
   const [paymentError, setPaymentError] = useState<string>('');
 
   const handleAlipayClick = useCallback((): void => {
-    if (!data.payment.alipayUrl) {
+    if (!data?.payment?.alipayUrl) {
       setPaymentError('支付宝收款链接未配置，请联系业务员');
       return;
     }
@@ -644,13 +728,13 @@ const PayStep: React.FC<PayStepProps> = ({ data }): React.ReactElement => {
     } catch (error) {
       setPaymentError('打开支付页面失败，请稍后重试');
     }
-  }, [data.payment.alipayUrl]);
+  }, [data?.payment?.alipayUrl]);
 
   return (
     <div className="bg-white p-8 rounded-[3rem] shadow-2xl text-center space-y-10 animate-in zoom-in-95 duration-500">
       <div className="space-y-2">
         <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest opacity-60">保费应付总额</p>
-        <h2 className="text-5xl font-black text-red-600 italic tracking-tighter leading-none">¥ {data.project.premium}</h2>
+        <h2 className="text-5xl font-black text-red-600 italic tracking-tighter leading-none">¥ {data?.project?.premium ?? '0.00'}</h2>
       </div>
       <div className="grid gap-4">
         <PaymentBtn
@@ -671,7 +755,7 @@ const PayStep: React.FC<PayStepProps> = ({ data }): React.ReactElement => {
       )}
       {paymentMethod === 'wechat' && (
         <div className="p-8 bg-white rounded-[2.5rem] shadow-3xl border border-jh-green/5 animate-in slide-in-from-top-4">
-          {data.payment.wechatQrCode ? (
+          {data?.payment?.wechatQrCode ? (
             <div className="space-y-4">
               <p className="text-[10px] text-jh-header font-black uppercase tracking-widest animate-pulse">长按识别下方二维码完成支付</p>
               <img src={data.payment.wechatQrCode} className="w-64 h-64 mx-auto rounded-[2rem] shadow-inner" alt="WeChat QR Code" />
