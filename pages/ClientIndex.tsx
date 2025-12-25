@@ -488,26 +488,22 @@ const ClientIndex: React.FC = (): JSX.Element => {
   }, [currentDocIndex]);
 
   const markDocAndNext = useCallback((): void => {
-    // 检查是否是最后一个文档（修复 #3：避免闭包陷阱）
     const isLastDocument = currentDocIndex === DOCUMENTS.length - 1;
 
-    // 先标记当前文档已读
     setReadDocs((prev) => {
       const next = [...prev];
       next[currentDocIndex] = true;
       return next;
     });
 
-    // 延迟 300ms 进行页面切换（修复 #2：避免竞态条件）
-    setTimeout(() => {
+    // 使用 requestAnimationFrame 替代 setTimeout
+    requestAnimationFrame(() => {
       if (isLastDocument) {
-        // 最后一个条款，直接切换到手机验证步骤
         setStep('verify');
       } else {
-        // 继续下一个条款
         setCurrentDocIndex((prevIndex) => prevIndex + 1);
       }
-    }, 300);
+    });
   }, [currentDocIndex]); // ✅ 依赖项清晰
 
   if (isLoading || !data) {
@@ -681,21 +677,31 @@ const ClientIndex: React.FC = (): JSX.Element => {
         <span className={step === 'pay' ? 'text-jh-header' : ''}>保费支付</span>
       </div>
 
-      <main className="p-4 space-y-4 max-w-lg mx-auto w-full flex-1 relative z-10">
+      <main className="p-4 space-y-4 max-w-lg mx-auto w-full flex-1 relative z-10 animate-in fade-in duration-300">
         {step === 'verify' && (
-          <VerifyStep onComplete={() => setStep('check')} proposerMobile={data.proposer.mobile} />
+          <VerifyStep 
+            onComplete={() => setStep('check')} 
+            proposerMobile={data.proposer.mobile} 
+          />
         )}
 
         {step === 'check' && (
-          <CheckStep onComplete={() => setStep('sign')} data={data} />
+          <CheckStep 
+            onComplete={() => setStep('sign')} 
+            data={data} 
+          />
         )}
 
         {step === 'sign' && (
-          <SignStep onComplete={() => setStep('pay')} />
+          <SignStep 
+            onComplete={() => setStep('pay')} 
+          />
         )}
 
         {step === 'pay' && (
-          <PayStep data={data} />
+          <PayStep 
+            data={data} 
+          />
         )}
       </main>
 
@@ -714,8 +720,24 @@ const ClientIndex: React.FC = (): JSX.Element => {
   );
 };
 
-const PayStep = ({ data }: { data: InsuranceData }) => {
+const PayStep: React.FC<PayStepProps> = ({ data }): JSX.Element => {
   const [paymentMethod, setPaymentMethod] = useState<'wechat' | 'alipay' | null>(null);
+  const [paymentError, setPaymentError] = useState<string>('');
+
+  const handleAlipayClick = useCallback((): void => {
+    if (!data.payment.alipayUrl) {
+      setPaymentError('支付宝收款链接未配置，请联系业务员');
+      return;
+    }
+    try {
+      const newWindow = window.open(data.payment.alipayUrl, '_blank');
+      if (!newWindow) {
+        setPaymentError('浏览器阻止了支付页面打开，请检查弹窗设置');
+      }
+    } catch (error) {
+      setPaymentError('打开支付页面失败，请稍后重试');
+    }
+  }, [data.payment.alipayUrl]);
 
   return (
     <div className="bg-white p-8 rounded-[3rem] shadow-2xl text-center space-y-10 animate-in zoom-in-95 duration-500">
@@ -724,18 +746,41 @@ const PayStep = ({ data }: { data: InsuranceData }) => {
         <h2 className="text-5xl font-black text-red-600 italic tracking-tighter leading-none">¥ {data.project.premium}</h2>
       </div>
       <div className="grid gap-4">
-        <PaymentBtn type="wechat" isActive={paymentMethod === 'wechat'} onClick={() => setPaymentMethod('wechat')} />
-        <PaymentBtn type="alipay" isActive={paymentMethod === 'alipay'} onClick={() => setPaymentMethod('alipay')} />
+        <PaymentBtn 
+          type="wechat" 
+          isActive={paymentMethod === 'wechat'} 
+          onClick={() => { setPaymentMethod('wechat'); setPaymentError(''); }} 
+        />
+        <PaymentBtn 
+          type="alipay" 
+          isActive={paymentMethod === 'alipay'} 
+          onClick={() => { setPaymentMethod('alipay'); setPaymentError(''); }} 
+        />
       </div>
+      {paymentError && (
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-600 text-sm font-bold animate-in fade-in">
+          {paymentError}
+        </div>
+      )}
       {paymentMethod === 'wechat' && (
         <div className="p-8 bg-white rounded-[2.5rem] shadow-3xl border border-jh-green/5 animate-in slide-in-from-top-4">
           {data.payment.wechatQrCode ? (
-            <div className="space-y-4"><p className="text-[10px] text-jh-header font-black uppercase tracking-widest animate-pulse">长按识别下方二维码完成支付</p><img src={data.payment.wechatQrCode} className="w-64 h-64 mx-auto rounded-[2rem] shadow-inner" alt="WeChat QR Code" /></div>
-          ) : <p className="text-slate-300 font-bold italic py-10 text-sm">业务员暂未配置收款码凭证</p>}
+            <div className="space-y-4">
+              <p className="text-[10px] text-jh-header font-black uppercase tracking-widest animate-pulse">长按识别下方二维码完成支付</p>
+              <img src={data.payment.wechatQrCode} className="w-64 h-64 mx-auto rounded-[2rem] shadow-inner" alt="WeChat QR Code" />
+            </div>
+          ) : (
+            <p className="text-slate-300 font-bold italic py-10 text-sm">业务员暂未配置收款码凭证</p>
+          )}
         </div>
       )}
       {paymentMethod === 'alipay' && (
-        <button onClick={() => window.location.href = data.payment.alipayUrl} className="w-full bg-blue-600 text-white py-6 rounded-[2rem] font-black shadow-2xl shadow-blue-600/20 active:scale-95 transition-all text-xl">前往支付宝支付</button>
+        <button 
+          onClick={handleAlipayClick}
+          className="w-full bg-blue-600 text-white py-6 rounded-[2rem] font-black shadow-2xl shadow-blue-600/20 active:scale-95 transition-all text-xl"
+        >
+          前往支付宝支付
+        </button>
       )}
     </div>
   );
