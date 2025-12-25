@@ -488,31 +488,18 @@ const ClientIndex: React.FC = (): JSX.Element => {
   }, [currentDocIndex]);
 
   const markDocAndNext = useCallback((): void => {
-    // ✅ 关键修复：在回调中使用条件逻辑而不是依赖闭包变量
-    setReadDocs((prev) => {
-      const next = [...prev];
-      next[currentDocIndex] = true;
+    // 确保当前文档被标记为已读
+    markCurrentAsRead();
 
-      // 检查是否是最后一个文档（通过数组长度判断）
-      const isLastDocument = currentDocIndex === DOCUMENTS.length - 1;
-
-      // 使用 setTimeout 替代 requestAnimationFrame
-      // 延迟 0ms 确保状态更新完成后立即执行
-      setTimeout(() => {
-        if (isLastDocument) {
-          // 最后一个条款，直接切换到验证步骤
-          console.log('✅ 触发跳转到验证步骤', { currentDocIndex, isLastDocument });
-          setStep('verify');
-        } else {
-          // 继续下一个条款
-          console.log('➡️ 切换到下一条款', { currentDocIndex });
-          setCurrentDocIndex((prevIndex) => prevIndex + 1);
-        }
-      }, 0); // 0ms 延迟确保立即执行且在状态更新后
-
-      return next;
-    });
-  }, [currentDocIndex]); // ✅ 依赖项清晰
+    const isLastDocument = currentDocIndex === DOCUMENTS.length - 1;
+    if (isLastDocument) {
+      // 如果是最后一个文档，直接进入验证步骤
+      setStep('verify');
+    } else {
+      // 否则，进入下一个条款
+      setCurrentDocIndex((prevIndex) => prevIndex + 1);
+    }
+  }, [currentDocIndex, markCurrentAsRead]);
 
   if (isLoading || !data) {
     if (fetchError) {
