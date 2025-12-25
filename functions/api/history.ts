@@ -1,4 +1,4 @@
-/// <reference types="@cloudflare/workers-types" />
+import type { KVNamespace } from '@cloudflare/workers-types';
 
 // 定义 Cloudflare Pages 函数的环境变量，包含 KV 命名空间
 interface Env {
@@ -14,8 +14,7 @@ const HISTORY_KEY = "HISTORY_LOG";
  * GET /api/history?action=get - 获取所有历史记录
  * POST /api/history?action=set - 保存所有历史记录
  */
-export const onRequest: PagesFunction<Env> = async (context) => {
-    const { request, env } = context;
+export const onRequest = async ({ request, env }: { request: Request; env: Env }) => {
     const url = new URL(request.url);
     const action = url.searchParams.get('action');
 
