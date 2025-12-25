@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { encodeData, InsuranceData, CoverageItem } from '../utils/codec';
-import { scanPersonImage, scanVehicleImage, getApiKey } from '../utils/ai';
+import { scanPersonImage, scanVehicleImage, getApiKey, testAIConnection } from '../utils/ai';
 import QRCode from 'qrcode';
 
 const INITIAL_DATA: InsuranceData = {
@@ -8,36 +8,46 @@ const INITIAL_DATA: InsuranceData = {
   status: 'pending',
   proposer: { name: '', idType: '身份证', idCard: '', mobile: '', address: '' },
   insured: { name: '', idType: '身份证', idCard: '', mobile: '', address: '' },
-  vehicle: { 
-    plate: '', vin: '', engineNo: '', brand: '', vehicleOwner: '', 
-    registerDate: '', curbWeight: '', approvedLoad: '', approvedPassengers: '' 
+  vehicle: {
+    plate: '', vin: '', engineNo: '', brand: '', vehicleOwner: '',
+    registerDate: '', curbWeight: '', approvedLoad: '', approvedPassengers: ''
   },
-  project: { region: '北京', period: '2024-01-01 至 2025-01-01', premium: '0.00', coverages: [
-    { name: '机动车损失保险', amount: '300,000.00', deductible: '/', premium: '0.00' },
-    { name: '机动车第三者责任保险', amount: '1,000,000.00', deductible: '/', premium: '0.00' }
-  ] },
+  project: {
+    region: '北京', period: '2024-01-01 至 2025-01-01', premium: '0.00', coverages: [
+      { name: '机动车损失保险', amount: '300,000.00', deductible: '/', premium: '0.00' },
+      { name: '机动车第三者责任保险', amount: '1,000,000.00', deductible: '/', premium: '0.00' }
+    ]
+  },
   payment: { alipayUrl: '', wechatQrCode: '' }
 };
 
 interface HistoryRecord { id: string; timestamp: string; summary: string; data: InsuranceData; }
 
-// --- 子组件定义 ---
-
-const SectionHeader: React.FC<{ title: string; subtitle: string; onScan: () => void }> = ({ title, subtitle, onScan }) => (
-  <div className="flex justify-between items-center border-b border-slate-50 pb-6">
+const SectionHeader: React.FC<{ title: string; subtitle: string; onScan: () => void; isScanning: boolean; }> = ({ title, subtitle, onScan, isScanning }) => (
+  <div className="flex flex-wrap justify-between items-center border-b border-slate-50 pb-6 gap-4">
     <div className="flex-1">
       <h2 className="text-3xl font-black text-slate-800">{title}</h2>
       <p className="text-slate-400 text-sm mt-1">{subtitle}</p>
     </div>
-    <button onClick={onScan} className="bg-jh-green text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-jh-green/20 transition-all hover:scale-105 active:scale-95 shrink-0 ml-4">📷 AI 识别</button>
+    <button onClick={onScan} disabled={isScanning} className="bg-jh-green text-white px-6 py-3 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-jh-green/20 transition-all hover:scale-105 active:scale-95 shrink-0 ml-4 disabled:opacity-50 disabled:cursor-wait min-w-[120px]">
+      {isScanning ? (
+        <>
+          <div className="w-5 h-5 border-2 border-t-white rounded-full animate-spin"></div>
+          <span>识别中...</span>
+        </>
+      ) : (
+        '📷 AI 识别'
+      )}
+    </button>
   </div>
 );
 
-const InputGroup: React.FC<{ label: string; value: string; onChange: (v: string) => void }> = ({ label, value, onChange }) => (
+const InputGroup: React.FC<{ label: string; value: string; onChange: (v: string) => void; error?: string; }> = ({ label, value, onChange, error }) => (
   <div className="flex flex-col gap-2">
     <label className="text-xs font-black text-slate-400 tracking-widest px-1 uppercase">{label}</label>
-    <input type="text" className="bg-slate-50 border border-slate-200 text-slate-800 px-5 py-4 rounded-2xl outline-none font-medium focus:border-jh-green transition-all" 
+    <input type="text" className={`bg-slate-50 border text-slate-800 px-5 py-4 rounded-2xl outline-none font-medium focus:border-jh-green transition-all ${error ? 'border-rose-400' : 'border-slate-200'}`}
       value={value} onChange={e => onChange(e.target.value)} />
+    {error && <p className="text-rose-500 text-xs mt-1 px-1">{error}</p>}
   </div>
 );
 
@@ -48,33 +58,194 @@ const DiagnosticBadge: React.FC<{ label: string; status: 'ok' | 'checking' | 'fa
   </div>
 );
 
+const PRESET_TEMPLATES = {
+  personal: {
+    proposer: { name: '李明', idType: '身份证', idCard: '11010119900307001X', mobile: '13800138000', address: '北京市朝阳区建国路88号' },
+  },
+  company: {
+    proposer: { name: '北京示例科技有限公司', idType: '统一社会信用代码', idCard: '91110105MA01Q8888A', mobile: '13910012345', address: '北京市海淀区中关村大街1号' },
+  },
+  vehicle: {
+    vehicle: { plate: '京A88888', vin: 'LSVDU25G8PK123456', brand: '特斯拉/Tesla Model Y', vehicleOwner: '李明' },
+  }
+};
+
 const Admin: React.FC = () => {
   const [data, setData] = useState<InsuranceData>(INITIAL_DATA);
   const [activeTab, setActiveTab] = useState<'proposer' | 'insured' | 'vehicle' | 'project' | 'payment' | 'generate' | 'history'>('proposer');
   const [qrCode, setQrCode] = useState<string>('');
+  const [generatedUrl, setGeneratedUrl] = useState<string>('');
   const [isCloudLoading, setIsCloudLoading] = useState(false);
+  const [scanLoading, setScanLoading] = useState(false);
   const [kvStatus, setKvStatus] = useState<'checking' | 'ok' | 'fail'>('checking');
-  const [aiStatus, setAiStatus] = useState<'ready' | 'missing' | 'testing'>('missing');
+  const [aiStatus, setAiStatus] = useState<'ok' | 'fail' | 'testing' | 'missing'>('missing');
   const [history, setHistory] = useState<HistoryRecord[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [completedTabs, setCompletedTabs] = useState<Set<string>>(new Set());
   const wechatQrInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   const hltProductName = `国寿财险${data.vehicle.plate || '[车牌]'}机动车商业保险`;
 
   useEffect(() => {
     checkKV();
     const config = getApiKey();
-    setAiStatus(config.error ? 'missing' : 'ready');
+    setAiStatus(config.error ? 'fail' : 'ok');
+    // 从 Cloudflare KV 加载历史记录
+    setIsHistoryLoading(true);
+    fetch('/api/history?action=get')
+      .then(res => res.ok ? res.json() : [])
+      .then(data => setHistory(data || []))
+      .catch(err => console.error("无法从 KV 加载历史记录:", err))
+      .finally(() => setIsHistoryLoading(false));
+
+    try {
+      const draft = localStorage.getItem('jh_autopay_draft');
+      if (draft) {
+        if (window.confirm('检测到上次未完成的草稿，是否恢复？')) {
+          const draftData = JSON.parse(draft);
+          setData(draftData);
+          alert('✓ 草稿已恢复');
+        }
+      }
+    } catch (error) {
+      console.error("无法从 localStorage 加载草稿:", error);
+    }
   }, []);
+
+  // 实时保存草稿
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      localStorage.setItem('jh_autopay_draft', JSON.stringify(data));
+    }, 1000);
+    return () => clearTimeout(handler);
+  }, [data]);
+
+  // 每当 history 变化时，将其自动保存到 Cloudflare KV
+  useEffect(() => {
+    // 仅在 history 实际被修改后（非初始加载）执行保存
+    if (!isHistoryLoading && history.length > 0) {
+      fetch('/api/history?action=set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(history),
+      }).catch(err => console.error("保存历史记录到 KV 失败:", err));
+    }
+  }, [history, isHistoryLoading]);
+
+  const validateSection = (tab: typeof activeTab): string[] => {
+    const errorMessages: string[] = [];
+    const currentErrors: Record<string, string> = {};
+
+    if (tab === 'proposer') {
+      if (!data.proposer.name) { errorMessages.push('投保人名称不能为空'); currentErrors['proposer.name'] = '投保人名称不能为空'; }
+      if (!data.proposer.idCard) { errorMessages.push('证件号码不能为空'); currentErrors['proposer.idCard'] = '证件号码不能为空'; }
+      if (!/^1[3-9]\d{9}$/.test(data.proposer.mobile)) { errorMessages.push('请输入有效的手机号码'); currentErrors['proposer.mobile'] = '请输入有效的手机号码'; }
+    }
+    if (tab === 'vehicle') {
+      if (!data.vehicle.plate) { errorMessages.push('车牌号码不能为空'); currentErrors['vehicle.plate'] = '车牌号码不能为空'; }
+      if (!data.vehicle.vin) { errorMessages.push('车辆识别代号 (VIN)不能为空'); currentErrors['vehicle.vin'] = '车辆识别代号 (VIN)不能为空'; }
+    }
+    setErrors(currentErrors);
+    return errorMessages;
+  };
+
+  const isTabComplete = (tabId: string): boolean => {
+    switch (tabId) {
+      case 'proposer':
+        return !!(data.proposer.name && data.proposer.idCard && /^1[3-9]\d{9}$/.test(data.proposer.mobile));
+      case 'vehicle':
+        return !!(data.vehicle.plate && data.vehicle.vin);
+      case 'payment':
+        return !!(data.payment.alipayUrl || data.payment.wechatQrCode);
+      default:
+        return true;
+    }
+  };
+
+  useEffect(() => {
+    const newCompleted = new Set<string>();
+    if (isTabComplete('proposer')) newCompleted.add('proposer');
+    if (isTabComplete('insured')) newCompleted.add('insured');
+    if (isTabComplete('vehicle')) newCompleted.add('vehicle');
+    if (isTabComplete('project')) newCompleted.add('project');
+    if (isTabComplete('payment')) newCompleted.add('payment');
+    setCompletedTabs(newCompleted);
+  }, [data]);
+
+  const handleTabSwitch = (newTab: typeof activeTab) => {
+    const validationErrors = validateSection(activeTab);
+    if (validationErrors.length > 0) {
+      alert(`当前页面有错误，请修正后再切换:\n- ${validationErrors.join('\n- ')}`);
+      return;
+    }
+    setErrors({}); // Clear errors when switching tab
+    setActiveTab(newTab);
+  };
 
   const checkKV = () => {
     setKvStatus('checking');
     fetch('/api/status').then(res => res.json()).then(s => setKvStatus(s.kv_bound ? 'ok' : 'fail')).catch(() => setKvStatus('fail'));
   };
 
-  const handleInputChange = (section: keyof InsuranceData, field: string, value: string) => {
-    setData(prev => ({ ...prev, [section]: { ...(prev[section] as any), [field]: value } }));
+  const testAI = async () => {
+    setAiStatus('testing');
+    try {
+      await testAIConnection();
+      setAiStatus('ok');
+      alert("✅ AI 连接成功，Key 有效！");
+    } catch (e: any) {
+      setAiStatus('fail');
+      alert(`❌ ${e.message}`);
+    }
   };
 
+  const handleInputChange = (section: keyof InsuranceData, field: string, value: string) => {
+    setData(prev => ({ ...prev, [section]: { ...(prev[section] as any), [field]: value } }));
+    const key = `${section}.${field}`;
+    let error = '';
+    if (section === 'proposer') {
+      if (field === 'name' && !value) error = '投保人名称不能为空';
+      if (field === 'idCard' && !value) error = '证件号码不能为空';
+      if (field === 'mobile' && !/^1[3-9]\d{9}$/.test(value)) error = '请输入有效的手机号码';
+    }
+    if (section === 'vehicle') {
+      if (field === 'plate' && !value) error = '车牌号码不能为空';
+      if (field === 'vin' && !value) error = '车辆识别代号 (VIN)不能为空';
+    }
+    setErrors(prev => ({ ...prev, [key]: error }));
+  };
+
+  const triggerAIScan = (tab: 'proposer' | 'vehicle') => {
+    fileInputRef.current?.setAttribute('data-scan-target', tab);
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const tab = fileInputRef.current?.getAttribute('data-scan-target') as 'proposer' | 'vehicle';
+    if (!file || !tab) return;
+
+    setScanLoading(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64 = event.target?.result as string;
+      try {
+        const scanFn = tab === 'proposer' ? scanPersonImage : scanVehicleImage;
+        const result = await scanFn(base64);
+        setData(prev => ({ ...prev, [tab]: { ...prev[tab], ...result } }));
+        alert('✅ AI 识别成功并已自动填充！');
+      } catch (err: any) {
+        alert(`⚠️ AI识别失败，请检查API密钥配置: ${err.message}`);
+      } finally {
+        setScanLoading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    };
+    reader.readAsDataURL(file);
+  };
   const handleWechatQrUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -112,15 +283,54 @@ const Admin: React.FC = () => {
       }
     } catch (e) { console.warn("KV 保存失败"); } finally { setIsCloudLoading(false); }
 
-    if (!finalUrl) finalUrl = `${baseUrl}#/buffer?data=${encodeData(data)}`;
-    QRCode.toDataURL(finalUrl, { margin: 2, width: 600 }).then(setQrCode);
-    setHistory(prev => [{ 
-      id: Date.now().toString(), 
-      timestamp: new Date().toLocaleString(), 
-      summary: `${data.proposer.name || '未命名'} - ${data.vehicle.plate || '无车牌'}`, 
-      data: JSON.parse(JSON.stringify(data)) 
+    if (!finalUrl) {
+      finalUrl = `${baseUrl}#/buffer?data=${encodeData(data)}`;
+    }
+    setGeneratedUrl(finalUrl);
+    QRCode.toDataURL(finalUrl, { margin: 2, width: 600 }).then(url => {
+      setQrCode(url);
+      setActiveTab('generate');
+    });
+    setHistory(prev => [{
+      id: Date.now().toString(),
+      timestamp: new Date().toLocaleString(),
+      summary: `${data.proposer.name || '未命名'} - ${data.vehicle.plate || '无车牌'}`,
+      data: JSON.parse(JSON.stringify(data))
     }, ...prev]);
-    setActiveTab('generate');
+  };
+
+  const applyTemplate = (template: Partial<InsuranceData>) => {
+    setData(prev => ({ ...prev, ...JSON.parse(JSON.stringify(template)) }));
+    alert('✓ 模板已应用');
+  };
+
+  const exportData = () => {
+    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(data, null, 2))}`;
+    const link = document.createElement("a");
+    link.href = jsonString;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    link.download = `${data.proposer.name || '未命名'}_${timestamp}.json`;
+    link.click();
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const importedData = JSON.parse(event.target?.result as string);
+        if (importedData.proposer && importedData.vehicle) {
+          setData(importedData);
+          alert('✓ 数据导入成功！');
+        } else {
+          throw new Error('文件格式不正确');
+        }
+      } catch (err: any) {
+        alert(`导入失败: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -128,35 +338,38 @@ const Admin: React.FC = () => {
       <header className="bg-jh-green text-white p-5 shadow-xl sticky top-0 z-50">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4 overflow-hidden">
-             <div className="h-10 w-auto bg-white rounded-xl flex items-center justify-center overflow-hidden border border-white/30 shadow-md px-3 shrink-0">
-                <img src="jhic.jpeg" className="h-8 w-auto object-contain" alt="China Life Logo" />
-             </div>
-             <div className="min-w-0">
-                <h1 className="text-xl font-black tracking-tight leading-tight truncate">ChinaLife-JHPCIC投保系统</h1>
-                <p className="text-[10px] opacity-70 tracking-[0.2em] font-medium uppercase">INTERNAL AUTOPAY SYSTEM V3.3</p>
-             </div>
+            <div className="h-10 w-auto bg-white rounded-xl flex items-center justify-center overflow-hidden border border-white/30 shadow-md px-3 shrink-0">
+              <img src="jhic.jpeg" className="h-8 w-auto object-contain" alt="China Life Logo" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl font-black tracking-tight leading-tight truncate">ChinaLife-JHPCIC投保系统</h1>
+              <p className="text-[10px] opacity-70 tracking-[0.2em] font-medium uppercase">INTERNAL AUTOPAY SYSTEM V3.3</p>
+            </div>
           </div>
           <div className="flex gap-3 shrink-0">
             <DiagnosticBadge label="KV" status={kvStatus} onClick={checkKV} />
-            <DiagnosticBadge label="AI" status={aiStatus === 'ready' ? 'ok' : 'fail'} onClick={() => {}} />
+            <DiagnosticBadge label="AI" status={aiStatus === 'ok' ? 'ok' : (aiStatus === 'testing' ? 'checking' : 'fail')} onClick={testAI} />
           </div>
         </div>
       </header>
+
+      <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+      <input type="file" ref={importFileInputRef} onChange={handleImport} accept=".json" className="hidden" />
 
       <div className="max-w-6xl mx-auto p-4 md:p-8">
         <div className="flex overflow-x-auto gap-3 mb-10 pb-2 no-scrollbar">
           {[
             { id: 'proposer', label: '1. 投保人' },
             { id: 'insured', label: '2. 被保险人' },
-            { id: 'vehicle', label: '3. 投保车辆信息' },
+            { id: 'vehicle', label: '3. 承保车辆' },
             { id: 'project', label: '4. 方案设置' },
             { id: 'payment', label: '5. 收款配置' },
             { id: 'generate', label: '6. 生成链接' },
             { id: 'history', label: '7. 历史' }
           ].map((tab) => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} 
-              className={`flex items-center gap-2 px-6 py-4 rounded-2xl whitespace-nowrap text-sm font-bold transition-all shadow-sm border ${activeTab === tab.id ? 'bg-jh-green text-white border-jh-green ring-4 ring-jh-green/10' : 'bg-white text-slate-400 border-slate-100 hover:border-jh-green/30'}`}>
-              {tab.label}
+            <button key={tab.id} onClick={() => handleTabSwitch(tab.id as any)}
+              className={`flex items-center gap-2 px-6 py-4 rounded-2xl whitespace-nowrap text-sm font-bold transition-all shadow-sm border ${activeTab === tab.id ? 'bg-jh-green text-white border-jh-green ring-4 ring-jh-green/10' : (completedTabs.has(tab.id) ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-400 border-slate-100 hover:border-jh-green/30')}`}>
+              {tab.label} {completedTabs.has(tab.id) && activeTab !== tab.id && '✓'}
             </button>
           ))}
         </div>
@@ -164,7 +377,7 @@ const Admin: React.FC = () => {
         <div className="bg-white rounded-3xl shadow-2xl shadow-jh-green/5 border border-slate-100 p-6 md:p-12 min-h-[500px]">
           {activeTab === 'proposer' && (
             <div className="space-y-10 animate-in fade-in duration-500">
-              <SectionHeader title="投保人核心资料" subtitle="请务必确保联系方式真实有效，以免影响核保" onScan={() => {}} />
+              <SectionHeader title="投保人核心资料" subtitle="请务必确保联系方式真实有效，以免影响核保" onScan={() => triggerAIScan('proposer')} isScanning={scanLoading} />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <InputGroup label="姓名 / 机构名称" value={data.proposer.name} onChange={v => handleInputChange('proposer', 'name', v)} />
                 <InputGroup label="统一社会信用代码 / 证件号" value={data.proposer.idCard} onChange={v => handleInputChange('proposer', 'idCard', v)} />
@@ -176,13 +389,13 @@ const Admin: React.FC = () => {
 
           {activeTab === 'vehicle' && (
             <div className="space-y-10 animate-in fade-in duration-500">
-              <SectionHeader title="投保车辆信息" subtitle="请拍摄行驶证原件进行 AI 自动识别录入" onScan={() => {}} />
+              <SectionHeader title="承保车辆信息" subtitle="请拍摄行驶证原件进行 AI 自动识别录入" onScan={() => triggerAIScan('vehicle')} isScanning={scanLoading} />
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <InputGroup label="车牌号码" value={data.vehicle.plate} onChange={v => handleInputChange('vehicle', 'plate', v)} />
+                <InputGroup label="车牌号码" value={data.vehicle.plate} onChange={v => handleInputChange('vehicle', 'plate', v)} error={errors['vehicle.plate']} />
                 <InputGroup label="车辆所有人" value={data.vehicle.vehicleOwner} onChange={v => handleInputChange('vehicle', 'vehicleOwner', v)} />
-                <InputGroup label="厂牌型号" value={data.vehicle.brand} onChange={v => handleInputChange('vehicle', 'brand', v)} />
+                <InputGroup label="品牌型号" value={data.vehicle.brand} onChange={v => handleInputChange('vehicle', 'brand', v)} />
                 <div className="md:col-span-3">
-                  <InputGroup label="车辆识别代号 (VIN)" value={data.vehicle.vin} onChange={v => handleInputChange('vehicle', 'vin', v)} />
+                  <InputGroup label="车辆识别代号 (VIN)" value={data.vehicle.vin} onChange={v => handleInputChange('vehicle', 'vin', v)} error={errors['vehicle.vin']} />
                 </div>
               </div>
             </div>
@@ -233,45 +446,51 @@ const Admin: React.FC = () => {
 
           {activeTab === 'generate' && (
             <div className="flex flex-col items-center justify-center py-10 space-y-10 animate-in zoom-in-95">
-               <button onClick={generateLink} disabled={isCloudLoading} className="bg-jh-green text-white px-12 py-6 rounded-3xl font-black text-xl shadow-2xl transition-all active:scale-95 disabled:opacity-50 min-w-[280px]">
-                 {isCloudLoading ? <span className="flex items-center gap-3 justify-center"><div className="w-5 h-5 border-4 border-t-white rounded-full animate-spin"></div> 正在同步云端</span> : '⚡ 生成加密投保码'}
-               </button>
-               {qrCode && (
-                 <div className="flex flex-col items-center gap-6">
-                   <div className="bg-white p-6 rounded-[3.5rem] shadow-3xl border relative overflow-hidden ring-1 ring-slate-100">
-                     <img src={qrCode} className="w-64 h-64 object-contain relative z-10" alt="Generated QR" />
-                     <div className="absolute top-0 right-0 p-3 opacity-10 font-black text-jh-green text-xs">JHPCIC V3.3</div>
-                   </div>
-                   <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.3em] bg-slate-100 px-6 py-2 rounded-full">长按保存或发送给客户</p>
-                 </div>
-               )}
+              <button onClick={generateLink} disabled={isCloudLoading} className="bg-jh-green text-white px-12 py-6 rounded-3xl font-black text-xl shadow-2xl transition-all active:scale-95 disabled:opacity-50 min-w-[280px]">
+                {isCloudLoading ? <span className="flex items-center gap-3 justify-center"><div className="w-5 h-5 border-4 border-t-white rounded-full animate-spin"></div> 正在同步云端</span> : '⚡ 生成加密投保码'}
+              </button>
+              {qrCode && (
+                <div className="flex flex-col items-center gap-6">
+                  <div className="bg-white p-6 rounded-[3.5rem] shadow-3xl border relative overflow-hidden ring-1 ring-slate-100">
+                    <img src={qrCode} className="w-64 h-64 object-contain relative z-10" alt="Generated QR" />
+                    <div className="absolute top-0 right-0 p-3 opacity-10 font-black text-jh-green text-xs">JHPCIC V3.3</div>
+                  </div>
+                  <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.3em] bg-slate-100 px-6 py-2 rounded-full">长按保存或发送给客户</p>
+                </div>
+              )}
             </div>
           )}
 
           {activeTab === 'history' && (
             <div className="space-y-6 animate-in fade-in duration-500">
-              <div className="border-b border-slate-50 pb-6">
+              <div className="flex flex-wrap justify-between items-center border-b border-slate-50 pb-6 gap-4">
                 <h2 className="text-3xl font-black text-slate-800">曾录入的信息</h2>
                 <p className="text-slate-400 text-sm mt-1">查看并复用之前的录单模板，加快操作速度</p>
+                <div className="flex gap-2">
+                  <button onClick={() => importFileInputRef.current?.click()} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-xs font-bold">导入</button>
+                  <button onClick={exportData} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-xs font-bold">导出当前</button>
+                </div>
               </div>
-              {history.length === 0 ? (
+              {isHistoryLoading ? (
+                <div className="py-20 text-center text-slate-300 italic font-bold animate-pulse">正在从云端加载历史记录...</div>
+              ) : history.length === 0 ? (
                 <div className="py-20 text-center text-slate-300 italic font-bold">暂无历史记录</div>
               ) : (
                 <div className="grid gap-4">
                   {history.map((item) => (
-                    <div key={item.id} className="bg-slate-50 p-6 rounded-3xl flex justify-between items-center border border-slate-100 hover:border-jh-green/40 transition-all">
+                    <div key={item.id} className="bg-slate-50 p-6 rounded-3xl flex flex-wrap justify-between items-center border border-slate-100 hover:border-jh-green/40 transition-all gap-4">
                       <div>
                         <p className="font-black text-slate-800 text-lg">{item.summary}</p>
                         <p className="text-xs text-slate-400 font-medium mt-1 uppercase tracking-widest">{item.timestamp}</p>
                       </div>
-                      <button onClick={() => applyHistoryData(item.data)} className="bg-white text-jh-green border border-jh-green/30 px-6 py-3 rounded-2xl font-black text-sm hover:bg-jh-green hover:text-white transition-all shadow-sm">应用此记录</button>
+                      <button onClick={() => applyHistoryData(item.data)} className="bg-white text-jh-green border border-jh-green/30 px-6 py-3 rounded-2xl font-black text-sm hover:bg-jh-green hover:text-white transition-all shadow-sm active:scale-95">应用此记录</button>
                     </div>
                   ))}
                 </div>
               )}
             </div>
           )}
-          
+
           {(['insured', 'project'].includes(activeTab)) && (
             <div className="py-32 text-center">
               <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">

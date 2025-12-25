@@ -1,33 +1,3 @@
-
-/**
- * Base64 Encoding/Decoding with UTF-8 support to handle Chinese characters correctly.
- */
-
-export const encodeData = (data: any): string => {
-  try {
-    const jsonString = JSON.stringify(data);
-    return btoa(encodeURIComponent(jsonString).replace(/%([0-9A-F]{2})/g,
-      function toSolidBytes(match, p1) {
-        return String.fromCharCode(parseInt(p1, 16));
-      }));
-  } catch (e) {
-    console.error("Encoding error", e);
-    return "";
-  }
-};
-
-export const decodeData = (base64: string): any => {
-  try {
-    const jsonString = decodeURIComponent(atob(base64).split('').map(function(c) {
-      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
-    return JSON.parse(jsonString);
-  } catch (e) {
-    console.error("Decoding error", e);
-    return null;
-  }
-};
-
 export interface CoverageItem {
   name: string;
   amount: string;
@@ -35,19 +5,23 @@ export interface CoverageItem {
   premium: string;
 }
 
-export interface PersonInfo {
-  name: string;
-  idType: string;
-  idCard: string;
-  mobile: string;
-  address: string;
-}
-
 export interface InsuranceData {
   orderId: string;
   status: 'pending' | 'paid';
-  proposer: PersonInfo;
-  insured: PersonInfo;
+  proposer: {
+    name: string;
+    idType: string;
+    idCard: string;
+    mobile: string;
+    address: string;
+  };
+  insured: {
+    name: string;
+    idType: string;
+    idCard: string;
+    mobile: string;
+    address: string;
+  };
   vehicle: {
     plate: string;
     vin: string;
@@ -57,7 +31,7 @@ export interface InsuranceData {
     registerDate: string;
     curbWeight: string;
     approvedLoad: string;
-    approvedPassengers: string; 
+    approvedPassengers: string;
   };
   project: {
     region: string;
@@ -67,7 +41,44 @@ export interface InsuranceData {
   };
   payment: {
     alipayUrl: string;
-    wechatQrCode: string; // 存储微信收款码图片
+    wechatQrCode: string;
   };
-  signature?: string;
+}
+
+/**
+ * Encodes insurance data into a URL-safe Base64 string.
+ * @param data The insurance data object.
+ * @returns A Base64 encoded string.
+ */
+export function encodeData(data: InsuranceData): string {
+  try {
+    const jsonString = JSON.stringify(data);
+    // Use btoa for browser environment. The unescape/encodeURIComponent trick handles Unicode.
+    const encoded = btoa(unescape(encodeURIComponent(jsonString)));
+    return encoded;
+  } catch (error) {
+    console.error("Encoding data failed:", error);
+    return "";
+  }
+}
+
+/**
+ * Decodes a Base64 string back into an insurance data object.
+ * @param encodedData The Base64 encoded string.
+ * @returns The decoded insurance data object, or null if decoding fails.
+ */
+export function decodeData(encodedData: string): InsuranceData | null {
+  try {
+    // The escape/decodeURIComponent trick handles Unicode.
+    const jsonString = decodeURIComponent(escape(atob(encodedData)));
+    const data = JSON.parse(jsonString);
+    // A simple type check could be added here for more robustness
+    if (data && data.proposer && data.vehicle) {
+      return data as InsuranceData;
+    }
+    return null;
+  } catch (error) {
+    console.error("Decoding data failed:", error);
+    return null;
+  }
 }
