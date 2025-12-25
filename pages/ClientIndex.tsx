@@ -488,21 +488,29 @@ const ClientIndex: React.FC = (): JSX.Element => {
   }, [currentDocIndex]);
 
   const markDocAndNext = useCallback((): void => {
-    const isLastDocument = currentDocIndex === DOCUMENTS.length - 1;
-
+    // ✅ 关键修复：在回调中使用条件逻辑而不是依赖闭包变量
     setReadDocs((prev) => {
       const next = [...prev];
       next[currentDocIndex] = true;
-      return next;
-    });
 
-    // 使用 requestAnimationFrame 替代 setTimeout
-    requestAnimationFrame(() => {
-      if (isLastDocument) {
-        setStep('verify');
-      } else {
-        setCurrentDocIndex((prevIndex) => prevIndex + 1);
-      }
+      // 检查是否是最后一个文档（通过数组长度判断）
+      const isLastDocument = currentDocIndex === DOCUMENTS.length - 1;
+
+      // 使用 setTimeout 替代 requestAnimationFrame
+      // 延迟 0ms 确保状态更新完成后立即执行
+      setTimeout(() => {
+        if (isLastDocument) {
+          // 最后一个条款，直接切换到验证步骤
+          console.log('✅ 触发跳转到验证步骤', { currentDocIndex, isLastDocument });
+          setStep('verify');
+        } else {
+          // 继续下一个条款
+          console.log('➡️ 切换到下一条款', { currentDocIndex });
+          setCurrentDocIndex((prevIndex) => prevIndex + 1);
+        }
+      }, 0); // 0ms 延迟确保立即执行且在状态更新后
+
+      return next;
     });
   }, [currentDocIndex]); // ✅ 依赖项清晰
 
@@ -679,28 +687,28 @@ const ClientIndex: React.FC = (): JSX.Element => {
 
       <main className="p-4 space-y-4 max-w-lg mx-auto w-full flex-1 relative z-10 animate-in fade-in duration-300">
         {step === 'verify' && (
-          <VerifyStep 
-            onComplete={() => setStep('check')} 
-            proposerMobile={data.proposer.mobile} 
+          <VerifyStep
+            onComplete={() => setStep('check')}
+            proposerMobile={data.proposer.mobile}
           />
         )}
 
         {step === 'check' && (
-          <CheckStep 
-            onComplete={() => setStep('sign')} 
-            data={data} 
+          <CheckStep
+            onComplete={() => setStep('sign')}
+            data={data}
           />
         )}
 
         {step === 'sign' && (
-          <SignStep 
-            onComplete={() => setStep('pay')} 
+          <SignStep
+            onComplete={() => setStep('pay')}
           />
         )}
 
         {step === 'pay' && (
-          <PayStep 
-            data={data} 
+          <PayStep
+            data={data}
           />
         )}
       </main>
@@ -746,15 +754,15 @@ const PayStep: React.FC<PayStepProps> = ({ data }): JSX.Element => {
         <h2 className="text-5xl font-black text-red-600 italic tracking-tighter leading-none">¥ {data.project.premium}</h2>
       </div>
       <div className="grid gap-4">
-        <PaymentBtn 
-          type="wechat" 
-          isActive={paymentMethod === 'wechat'} 
-          onClick={() => { setPaymentMethod('wechat'); setPaymentError(''); }} 
+        <PaymentBtn
+          type="wechat"
+          isActive={paymentMethod === 'wechat'}
+          onClick={() => { setPaymentMethod('wechat'); setPaymentError(''); }}
         />
-        <PaymentBtn 
-          type="alipay" 
-          isActive={paymentMethod === 'alipay'} 
-          onClick={() => { setPaymentMethod('alipay'); setPaymentError(''); }} 
+        <PaymentBtn
+          type="alipay"
+          isActive={paymentMethod === 'alipay'}
+          onClick={() => { setPaymentMethod('alipay'); setPaymentError(''); }}
         />
       </div>
       {paymentError && (
@@ -775,7 +783,7 @@ const PayStep: React.FC<PayStepProps> = ({ data }): JSX.Element => {
         </div>
       )}
       {paymentMethod === 'alipay' && (
-        <button 
+        <button
           onClick={handleAlipayClick}
           className="w-full bg-blue-600 text-white py-6 rounded-[2rem] font-black shadow-2xl shadow-blue-600/20 active:scale-95 transition-all text-xl"
         >
