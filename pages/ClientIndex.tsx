@@ -60,10 +60,10 @@ const Header: React.FC<{ title: string }> = ({ title }): JSX.Element => (
   <header className="bg-jh-header text-white h-14 flex items-center px-4 sticky top-0 z-50 shadow-md border-b border-white/10">
     <div className="flex items-center gap-3 max-w-full">
       <div className="h-9 w-9 bg-white rounded-xl flex items-center justify-center overflow-hidden shrink-0 border border-white/30 shadow-sm p-1">
-        <img src="jhic.jpeg" className="h-full w-full object-contain" alt="JHIC Logo" />
+        <img src="/jhic.jpeg" className="h-full w-full object-contain" alt="JHIC Logo" />
       </div>
       <div className="flex flex-col">
-        <h1 className="text-sm font-black truncate tracking-tight">{title}</h1>
+        <h1 className="text-base font-black truncate tracking-tight">{title}</h1>
         <p className="text-[8px] opacity-70 font-bold uppercase tracking-widest">China Life Insurance</p>
       </div>
     </div>
@@ -393,24 +393,31 @@ const ClientIndex: React.FC = (): JSX.Element => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
 
-      fetch(`/api/get?id=${idParam}`, { signal: controller.signal })
-        .then(res => {
+      const fetchData = async () => {
+        try {
+          const res = await fetch(`/api/get?id=${idParam}`, { signal: controller.signal });
           clearTimeout(timeoutId);
           if (!res.ok) throw new Error('获取保单信息失败');
-          return res.json();
-        })
-        .then(d => { setData(d); if (d.status === 'paid') setStep('completed'); })
-        .catch((err: Error) => {
+          const d = (await res.json().catch(() => null)) as InsuranceData | null;
+          if (d) {
+            setData(d);
+            if (d.status === 'paid') setStep('completed');
+          } else {
+            setFetchError('保单数据解析失败');
+          }
+        } catch (err: any) {
           if (err.name === 'AbortError') {
             setFetchError('网络超时，请检查网络连接');
           } else {
-            setFetchError(err.message);
+            setFetchError(err.message || '获取保单信息失败');
           }
-        })
-        .finally(() => {
+        } finally {
           clearTimeout(timeoutId);
           setIsLoading(false);
-        });
+        }
+      };
+
+      fetchData();
     } else if (dataParam) {
       try {
         const decoded = decodeData(dataParam);
@@ -531,13 +538,13 @@ const ClientIndex: React.FC = (): JSX.Element => {
     );
   }
 
-  const headerTitle = React.useMemo(() => {
+  const headerTitle = React.useMemo((): string => {
     switch (step) {
-      case 'terms': return '投保合规告知与授权';
       case 'verify': return '身份安全验证';
       case 'check': return '承保信息核对';
       case 'sign': return '电子签名确认';
       case 'pay': return '保费安全支付';
+      case 'completed': return '投保完成';
       default: return '中国人寿财险空中投保';
     }
   }, [step]);

@@ -89,7 +89,7 @@ const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onC
   }, [onClose]);
 
   const bgColor = type === 'success' ? 'bg-emerald-500' : type === 'error' ? 'bg-rose-500' : 'bg-blue-500';
-  const icon = type === 'success' ? '✓' : type === 'error' ? '⚠️' : 'ℹ️';
+  const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ️';
 
   return (
     <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-full shadow-2xl font-black text-sm animate-in fade-in slide-in-from-top-4 flex items-center gap-2 ${bgColor} text-white`}>
@@ -120,21 +120,26 @@ const Admin: React.FC = () => {
 
   const hltProductName = `国寿财险${data.vehicle.plate || '[车牌]'}机动车商业保险`;
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
-    setToast({ message, type });
-  };
-
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => setToast({ message, type });
 
   useEffect(() => {
     checkKV();
     const config = getApiKey();
     setAiStatus(config.error ? 'fail' : 'ok');
-    setIsHistoryLoading(true);
-    fetch('/api/history?action=get')
-      .then(res => (res.ok ? res.json() : []))
-      .then((data: HistoryRecord[]) => setHistory(Array.isArray(data) ? data : []))
-      .catch((err: Error) => console.error("无法从 KV 加载历史记录:", err))
-      .finally(() => setIsHistoryLoading(false));
+    const loadHistory = async () => {
+      setIsHistoryLoading(true);
+      try {
+        const res = await fetch('/api/history?action=get');
+        const data = res.ok ? await res.json().catch(() => []) : [];
+        setHistory(Array.isArray(data) ? (data as HistoryRecord[]) : []);
+      } catch (err) {
+        console.error("无法从 KV 加载历史记录:", err);
+        setHistory([]);
+      } finally {
+        setIsHistoryLoading(false);
+      }
+    };
+    loadHistory();
 
     try {
       const draft = localStorage.getItem('jh_autopay_draft');
@@ -198,13 +203,18 @@ const Admin: React.FC = () => {
   }, [data]);
 
   const handleTabSwitch = (newTab: typeof activeTab) => {
-    // 优化：切换时不清除错误，让用户可以看到哪个标签页仍有问题
     setActiveTab(newTab);
   };
 
-  const checkKV = () => {
+  const checkKV = async () => {
     setKvStatus('checking');
-    fetch('/api/status').then(res => res.json()).then(s => setKvStatus(s.kv_bound ? 'ok' : 'fail')).catch(() => setKvStatus('fail'));
+    try {
+      const res = await fetch('/api/status');
+      const s = (await res.json().catch(() => ({}))) as { kv_bound?: boolean };
+      setKvStatus(s?.kv_bound ? 'ok' : 'fail');
+    } catch {
+      setKvStatus('fail');
+    }
   };
 
   const testAI = async () => {
@@ -289,15 +299,6 @@ const Admin: React.FC = () => {
     showToast('已成功载入曾录入的信息', 'success');
   };
 
-  const clearAll = () => {
-    if (window.confirm('确定要清空所有输入并删除草稿吗？')) {
-      setData(INITIAL_DATA);
-      localStorage.removeItem('jh_autopay_draft');
-      showToast('已清空所有数据', 'info');
-      setActiveTab('proposer');
-    }
-  };
-
   const generateLink = async () => {
     const allErrors: Record<string, string> = {};
     if (!data.proposer.name) allErrors['proposer.name'] = '必填';
@@ -380,6 +381,15 @@ const Admin: React.FC = () => {
       }
     };
     reader.readAsText(file);
+  };
+
+  const clearAll = () => {
+    if (window.confirm('确定要清空所有输入并删除草稿吗？')) {
+      setData(INITIAL_DATA);
+      localStorage.removeItem('jh_autopay_draft');
+      showToast('已清空所有数据', 'info');
+      setActiveTab('proposer');
+    }
   };
 
   return (
@@ -486,10 +496,10 @@ const Admin: React.FC = () => {
                 <div className="grid gap-4">
                   {data.project.coverages.map((coverage: CoverageItem, index: number) => (
                     <div key={index} className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 grid grid-cols-1 md:grid-cols-4 gap-6 relative transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 group">
-                      <div className="md:col-span-1"><InputGroup label="险种名称" list="common-coverages" value={coverage.name} onChange={v => updateCoverage(index, 'name', v)} /></div>
-                      <div className="md:col-span-1"><InputGroup label="保额/限额" list="common-amounts" value={coverage.amount} onChange={v => updateCoverage(index, 'amount', v)} /></div>
-                      <div className="md:col-span-1"><InputGroup label="免赔额/率" value={coverage.deductible} onChange={v => updateCoverage(index, 'deductible', v)} /></div>
-                      <div className="md:col-span-1"><InputGroup label="保费" value={coverage.premium} onChange={v => updateCoverage(index, 'premium', v)} /></div>
+                      <InputGroup label="险种名称" list="common-coverages" value={coverage.name} onChange={v => updateCoverage(index, 'name', v)} />
+                      <InputGroup label="保额/限额" list="common-amounts" value={coverage.amount} onChange={v => updateCoverage(index, 'amount', v)} />
+                      <InputGroup label="免赔额/率" value={coverage.deductible} onChange={v => updateCoverage(index, 'deductible', v)} />
+                      <InputGroup label="保费" value={coverage.premium} onChange={v => updateCoverage(index, 'premium', v)} />
                       <button onClick={() => removeCoverage(index)}
                         className="absolute -top-2 -right-2 w-7 h-7 bg-rose-500 text-white rounded-full flex items-center justify-center text-xs shadow-lg md:opacity-0 group-hover:opacity-100 transition-opacity z-20"
                       >✕</button>

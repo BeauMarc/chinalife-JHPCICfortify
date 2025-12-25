@@ -11,7 +11,6 @@ interface Env {
 const HISTORY_KEY = "HISTORY_LOG";
 
 /**
- * 处理历史记录的 GET 和 POST 请求
  * GET /api/history?action=get - 获取所有历史记录
  * POST /api/history?action=set - 保存所有历史记录
  */
