@@ -478,19 +478,23 @@ const ClientIndex: React.FC = (): JSX.Element => {
     setCurrentDocIndex((idx) => Math.max(0, idx - 1));
   }, []);
 
-  const markDocAndNext = useCallback((): void => {
+  const markCurrentAsRead = useCallback((): void => {
     setReadDocs((prev) => {
       const next = [...prev];
       next[currentDocIndex] = true;
       return next;
     });
+  }, [currentDocIndex]);
+
+  const markDocAndNext = useCallback((): void => {
+    markCurrentAsRead();
 
     if (currentDocIndex < DOCUMENTS.length - 1) {
       setCurrentDocIndex((idx) => Math.min(idx + 1, DOCUMENTS.length - 1));
     } else {
       setStep('verify');
     }
-  }, [currentDocIndex]);
+  }, [currentDocIndex, markCurrentAsRead]);
 
 
   if (isLoading || !data) {
@@ -542,7 +546,7 @@ const ClientIndex: React.FC = (): JSX.Element => {
               ))}
             </div>
 
-              <div className="relative flex-1 min-h-[60vh] rounded-2xl overflow-hidden border border-slate-100 shadow-inner bg-slate-50/60">
+            <div className="relative flex-1 min-h-[70vh] md:min-h-[75vh] h-[calc(100vh-220px)] rounded-2xl overflow-hidden border border-slate-100 shadow-inner bg-slate-50/60">
               <iframe
                 title={currentDoc.title}
                 src={currentDoc.path}
@@ -566,10 +570,17 @@ const ClientIndex: React.FC = (): JSX.Element => {
                   </button>
                 )}
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={markCurrentAsRead}
+                  className="px-5 py-3 rounded-full text-sm font-black border border-slate-200 text-gray-700 bg-white hover:border-jh-header/40 active:scale-95"
+                >
+                  标记当前条款已读
+                </button>
                 <button
                   onClick={markDocAndNext}
-                  className="px-6 py-3 rounded-full text-sm font-black shadow-xl active:scale-95 transition-all bg-jh-header text-white"
+                  className="px-6 py-3 rounded-full text-sm font-black shadow-xl active:scale-95 transition-all bg-jh-header text-white disabled:opacity-50"
+                  disabled={!readDocs[currentDocIndex]}
                 >
                   {currentDocIndex === DOCUMENTS.length - 1 ? '已阅读，进入下一页面' : '已阅读，进入下一条款内容'}
                 </button>
