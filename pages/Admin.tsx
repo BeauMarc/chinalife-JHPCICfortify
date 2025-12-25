@@ -116,10 +116,13 @@ const Admin: React.FC = () => {
   const wechatQrInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   const hltProductName = `国寿财险${data.vehicle.plate || '[车牌]'}机动车商业保险`;
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => setToast({ message, type });
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, type });
+  };
 
 
   useEffect(() => {
