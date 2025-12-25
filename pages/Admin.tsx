@@ -94,6 +94,15 @@ const PRESET_TEMPLATES = {
   }
 };
 
+const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onClose: () => void }> = ({ message, type, onClose }) => (
+  <div className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg text-white ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`}>
+    <div className="flex items-center justify-between">
+      <span>{message}</span>
+      <button onClick={onClose} className="ml-4 text-white font-bold">✕</button>
+    </div>
+  </div>
+);
+
 const Admin: React.FC = () => {
   const [data, setData] = useState<InsuranceData>(INITIAL_DATA);
   const [activeTab, setActiveTab] = useState<'proposer' | 'insured' | 'vehicle' | 'project' | 'payment' | 'generate' | 'history'>('proposer');
@@ -107,11 +116,14 @@ const Admin: React.FC = () => {
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [completedTabs, setCompletedTabs] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const wechatQrInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
 
   const hltProductName = `国寿财险${data.vehicle.plate || '[车牌]'}机动车商业保险`;
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => setToast({ message, type });
 
   useEffect(() => {
     checkKV();
@@ -131,7 +143,7 @@ const Admin: React.FC = () => {
         if (window.confirm('检测到上次未完成的草稿，是否恢复？')) {
           const draftData = JSON.parse(draft);
           setData(draftData);
-          alert('✓ 草稿已恢复');
+          showToast('✓ 草稿已恢复', 'success');
         }
       }
     } catch (error) {
@@ -219,7 +231,7 @@ const Admin: React.FC = () => {
   const handleTabSwitch = (newTab: typeof activeTab) => {
     const validationErrors = validateSection(activeTab);
     if (validationErrors.length > 0) {
-      alert(`当前页面有错误，请修正后再切换:\n- ${validationErrors.join('\n- ')}`);
+      showToast(`当前页面有错误，请修正后再切换:\n- ${validationErrors.join('\n- ')}`, 'error');
       return;
     }
     setErrors({}); // Clear errors when switching tab
@@ -236,10 +248,10 @@ const Admin: React.FC = () => {
     try {
       await testAIConnection();
       setAiStatus('ok');
-      alert("✅ AI 连接成功，Key 有效！");
+      showToast("✅ AI 连接成功，Key 有效！", 'success');
     } catch (e: any) {
       setAiStatus('fail');
-      alert(`❌ ${e.message}`);
+      showToast(e.message, 'error');
     }
   };
 
@@ -285,9 +297,9 @@ const Admin: React.FC = () => {
         const scanFn = (tab === 'proposer' || tab === 'insured') ? scanPersonImage : scanVehicleImage;
         const result = await scanFn(base64);
         setData(prev => ({ ...prev, [tab]: { ...prev[tab], ...result } }));
-        alert('✅ AI 识别成功并已自动填充！');
+        showToast('✅ AI 识别成功并已自动填充！', 'success');
       } catch (err: any) {
-        alert(`⚠️ AI识别失败，请检查API密钥配置: ${err.message}`);
+        showToast(`⚠️ AI识别失败: ${err.message}`, 'error');
       } finally {
         setScanLoading(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
@@ -313,7 +325,7 @@ const Admin: React.FC = () => {
     newData.orderId = `JH-${Math.floor(Math.random() * 100000)}`;
     setData(newData);
     setActiveTab('proposer');
-    alert('已成功载入曾录入的信息');
+    showToast('已成功载入曾录入的信息', 'success');
   };
 
   const generateLink = async () => {
@@ -341,7 +353,7 @@ const Admin: React.FC = () => {
         setQrCode(url);
         setActiveTab('generate');
       })
-      .catch((err: Error) => alert(`生成二维码失败: ${err.message}`));
+      .catch((err: Error) => showToast(`生成二维码失败: ${err.message}`, 'error'));
 
     setHistory((prev: HistoryRecord[]) => [{
       id: Date.now().toString(),
@@ -353,7 +365,7 @@ const Admin: React.FC = () => {
 
   const applyTemplate = (template: Partial<InsuranceData>) => {
     setData(prev => ({ ...prev, ...JSON.parse(JSON.stringify(template)) }));
-    alert('✓ 模板已应用');
+    showToast('✓ 模板已应用', 'success');
   };
 
   const exportData = () => {
@@ -374,21 +386,23 @@ const Admin: React.FC = () => {
         const importedData: InsuranceData = JSON.parse(event.target?.result as string);
         if (importedData.proposer && importedData.vehicle) {
           setData(importedData);
-          alert('✓ 数据导入成功！');
+          showToast('✓ 数据导入成功！', 'success');
         } else {
           throw new Error('文件格式不正确');
         }
       } catch (err: any) {
-        alert(`导入失败: ${err.message}`);
+        showToast(`导入失败: ${err.message}`, 'error');
       }
     };
     reader.readAsText(file);
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24 font-sans text-slate-900 overflow-x-hidden">
+    <div className="min-h-screen bg-slate-50 pb-12 md:pb-24 font-sans text-slate-900 overflow-x-hidden">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
       <header className="bg-jh-green text-white p-5 shadow-xl sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto flex justify-between items-center">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-4 overflow-hidden">
             <div className="h-10 w-auto bg-white rounded-xl flex items-center justify-center overflow-hidden border border-white/30 shadow-md px-3 shrink-0">
               <img src="jhic.jpeg" className="h-8 w-auto object-contain" alt="China Life Logo" />
@@ -409,7 +423,7 @@ const Admin: React.FC = () => {
       <input type="file" ref={importFileInputRef} onChange={handleImport} accept=".json" className="hidden" />
 
       <div className="max-w-6xl mx-auto p-4 md:p-8">
-        <div className="flex overflow-x-auto gap-3 mb-10 pb-2 no-scrollbar">
+        <div className="flex overflow-x-auto gap-2 md:gap-3 mb-6 md:mb-10 pb-2 no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
           {[
             { id: 'proposer', label: '1. 投保人' },
             { id: 'insured', label: '2. 被保险人' },
@@ -420,7 +434,7 @@ const Admin: React.FC = () => {
             { id: 'history', label: '7. 历史' }
           ].map((tab) => (
             <button key={tab.id} onClick={() => handleTabSwitch(tab.id as typeof activeTab)}
-              className={`flex items-center gap-2 px-6 py-4 rounded-2xl whitespace-nowrap text-sm font-bold transition-all shadow-sm border ${activeTab === tab.id ? 'bg-jh-green text-white border-jh-green ring-4 ring-jh-green/10' : (completedTabs.has(tab.id) ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-400 border-slate-100 hover:border-jh-green/30')}`}>
+              className={`flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 rounded-xl md:rounded-2xl whitespace-nowrap text-xs md:text-sm font-bold transition-all shadow-sm border ${activeTab === tab.id ? 'bg-jh-green text-white border-jh-green ring-4 ring-jh-green/10' : (completedTabs.has(tab.id) ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-400 border-slate-100 hover:border-jh-green/30')}`}>
               {tab.label} {completedTabs.has(tab.id) && activeTab !== tab.id && '✓'}
             </button>
           ))}
@@ -465,7 +479,7 @@ const Admin: React.FC = () => {
                 <h2 className="text-3xl font-black text-slate-800">承保方案设置</h2>
                 <p className="text-slate-400 text-sm mt-1">配置保险期间、承保区域及具体的险种方案</p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <InputGroup label="承保区域" value={data.project.region} onChange={v => handleInputChange('project', 'region', v)} />
                 <div className="md:col-span-2">
                   <InputGroup label="保险期间" value={data.project.period} onChange={v => handleInputChange('project', 'period', v)} />
@@ -486,32 +500,32 @@ const Admin: React.FC = () => {
                 <div className="grid gap-4">
                   {data.project.coverages.map((coverage: CoverageItem, index: number) => (
                     <div key={index} className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 grid grid-cols-1 md:grid-cols-4 gap-6 relative transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 group">
-                      <InputGroup label="险种名称" list="common-coverages" value={coverage.name} onChange={v => {
+                      <div className="md:col-span-1"><InputGroup label="险种名称" list="common-coverages" value={coverage.name} onChange={v => {
                         const newCoverages = [...data.project.coverages];
                         newCoverages[index].name = v;
                         setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
-                      }} />
-                      <InputGroup label="保额/限额" list="common-amounts" value={coverage.amount} onChange={v => {
+                      }} /></div>
+                      <div className="md:col-span-1"><InputGroup label="保额/限额" list="common-amounts" value={coverage.amount} onChange={v => {
                         const newCoverages = [...data.project.coverages];
                         newCoverages[index].amount = v;
                         setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
-                      }} />
-                      <InputGroup label="免赔额/率" value={coverage.deductible} onChange={v => {
+                      }} /></div>
+                      <div className="md:col-span-1"><InputGroup label="免赔额/率" value={coverage.deductible} onChange={v => {
                         const newCoverages = [...data.project.coverages];
                         newCoverages[index].deductible = v;
                         setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
-                      }} />
-                      <InputGroup label="保费" value={coverage.premium} onChange={v => {
+                      }} /></div>
+                      <div className="md:col-span-1"><InputGroup label="保费" value={coverage.premium} onChange={v => {
                         const newCoverages = [...data.project.coverages];
                         newCoverages[index].premium = v;
                         setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
-                      }} />
+                      }} /></div>
                       <button
                         onClick={() => {
                           const newCoverages = data.project.coverages.filter((_, i) => i !== index);
                           setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
                         }}
-                        className="absolute -top-2 -right-2 w-7 h-7 bg-rose-500 text-white rounded-full flex items-center justify-center text-xs shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                        className="absolute -top-2 -right-2 w-7 h-7 bg-rose-500 text-white rounded-full flex items-center justify-center text-xs shadow-lg md:opacity-0 group-hover:opacity-100 transition-opacity z-20"
                       >✕</button>
                     </div>
                   ))}
@@ -547,7 +561,7 @@ const Admin: React.FC = () => {
                 <h2 className="text-3xl font-black text-slate-800">支付渠道与收款配置</h2>
                 <p className="text-slate-400 text-sm mt-1">配置支付宝跳转地址与上传微信收款二维码凭证</p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-10">
                 <div className="space-y-6">
                   <InputGroup label="支付宝跳转链接" value={data.payment.alipayUrl} onChange={v => handleInputChange('payment', 'alipayUrl', v)} />
                   <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 flex justify-between items-center">
@@ -555,7 +569,7 @@ const Admin: React.FC = () => {
                       <p className="text-[10px] text-blue-500 font-black mb-1 tracking-widest uppercase opacity-60">建议商品名</p>
                       <p className="font-bold text-blue-900 text-sm">{hltProductName}</p>
                     </div>
-                    <button onClick={() => navigator.clipboard.writeText(hltProductName).then(() => alert('已复制'))} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold active:scale-90 transition-transform">复制</button>
+                    <button onClick={() => navigator.clipboard.writeText(hltProductName).then(() => showToast('已复制', 'success'))} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold active:scale-90 transition-transform">复制</button>
                   </div>
                 </div>
                 <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-6 group transition-all hover:border-jh-green/50">
@@ -586,12 +600,12 @@ const Admin: React.FC = () => {
 
           {activeTab === 'generate' && (
             <div className="flex flex-col items-center justify-center py-10 space-y-10 animate-in zoom-in-95">
-              <button onClick={generateLink} disabled={isCloudLoading} className="bg-jh-green text-white px-12 py-6 rounded-3xl font-black text-xl shadow-2xl transition-all active:scale-95 disabled:opacity-50 min-w-[280px]">
+              <button onClick={generateLink} disabled={isCloudLoading} className="w-full sm:w-auto bg-jh-green text-white px-12 py-6 rounded-3xl font-black text-xl shadow-2xl transition-all active:scale-95 disabled:opacity-50 min-w-[280px]">
                 {isCloudLoading ? <span className="flex items-center gap-3 justify-center"><div className="w-5 h-5 border-4 border-t-white rounded-full animate-spin"></div> 正在同步云端</span> : '⚡ 生成加密投保码'}
               </button>
               {qrCode && (
                 <div className="flex flex-col items-center gap-6">
-                  <div className="bg-white p-6 rounded-[3.5rem] shadow-3xl border relative overflow-hidden ring-1 ring-slate-100">
+                  <div className="bg-white p-4 md:p-6 rounded-[2.5rem] md:rounded-[3.5rem] shadow-3xl border relative overflow-hidden ring-1 ring-slate-100 max-w-[90vw]">
                     <img src={qrCode} className="w-64 h-64 object-contain relative z-10" alt="Generated QR" />
                     <div className="absolute top-0 right-0 p-3 opacity-10 font-black text-jh-green text-xs">JHPCIC V3.3</div>
                   </div>
