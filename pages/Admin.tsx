@@ -400,7 +400,7 @@ const Admin: React.FC = () => {
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-4 overflow-hidden flex-1">
             <div className="h-10 w-auto bg-white rounded-xl flex items-center justify-center overflow-hidden border border-white/30 shadow-md px-3 shrink-0">
-              <img src="jhic.jpeg" className="h-8 w-auto object-contain" alt="China Life Logo" />
+              <img src="/jhic.jpeg" className="h-8 w-auto object-contain" alt="China Life Logo" />
             </div>
             <div className="min-w-0">
               <h1 className="text-xl font-black tracking-tight leading-tight truncate">ChinaLife-JHPCIC投保系统</h1>

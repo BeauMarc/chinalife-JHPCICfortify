@@ -32,7 +32,7 @@ const Buffer: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-jh-light font-sans">
       {/* 全局页头 Banner */}
       <div className="w-full bg-white">
-        <img src="/top-banner.png" className="w-full h-auto block" alt="China Life Banner" />
+        <img src="/logo.jpeg" className="w-full h-auto block" alt="China Life Banner" />
       </div>
       
       <header className="bg-jh-header text-white h-12 flex items-center justify-center px-4 shadow-sm z-50 sticky top-0">

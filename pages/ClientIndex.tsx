@@ -56,7 +56,7 @@ const DOCUMENTS: DocItemMeta[] = [
 
 const TopBanner: React.FC = (): JSX.Element => (
   <div className="w-full bg-white shadow-sm shrink-0 relative z-10">
-    <img src="/top-banner.png" className="w-full h-auto block" alt="China Life Banner" />
+    <img src="/logo.jpeg" className="w-full h-auto block" alt="China Life Banner" />
   </div>
 );
 
@@ -114,7 +114,7 @@ const InfoCard: React.FC<InfoCardProps> = React.memo(({ title, icon, items }): J
 const PaymentBtn: React.FC<PaymentBtnProps> = React.memo(({ type, isActive, onClick }): JSX.Element => (
   <button onClick={onClick} className={`p-6 rounded-[2rem] border-2 flex items-center justify-between transition-all active:scale-95 ${isActive ? (type === 'wechat' ? 'border-jh-green bg-emerald-50' : 'border-blue-500 bg-blue-50') : 'border-slate-50 bg-slate-50/30'}`}>
     <div className="flex items-center gap-4">
-      <img src="jhic.jpeg" className="w-11 h-11 rounded-xl shadow-md border-2 border-white" alt="JHIC" />
+      <img src="/jhic.jpeg" className="w-11 h-11 rounded-xl shadow-md border-2 border-white" alt="JHIC" />
       <div className="text-left">
         <p className="font-black text-lg text-slate-800">{type === 'wechat' ? '微信支付' : '支付宝支付'}</p>
         <p className={`text-[9px] font-black uppercase tracking-widest ${type === 'wechat' ? 'text-gray-400' : 'text-blue-500'}`}>
@@ -358,7 +358,7 @@ const ClientIndex: React.FC = (): JSX.Element => {
   // 性能優化：預加載靜態資源與 PDF
   useEffect(() => {
     // 1. 預加載關鍵靜態圖片
-    const staticImages = ['/top-banner.png', 'jhic.jpeg', '/head-background.jpg'];
+    const staticImages = ['/logo.jpeg', '/jhic.jpeg', '/head-background.jpg'];
     staticImages.forEach(src => {
       const img = new Image();
       img.src = src;
@@ -599,7 +599,7 @@ const ClientIndex: React.FC = (): JSX.Element => {
       </div>
 
       <div className="w-full bg-white shadow-sm shrink-0 relative z-10">
-        <img src="/top-banner.png" className="w-full h-auto block" alt="China Life Banner" />
+        <img src="/logo.jpeg" className="w-full h-auto block" alt="China Life Banner" />
       </div>
       <Header title={headerTitle} />
 
