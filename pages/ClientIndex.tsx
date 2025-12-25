@@ -354,6 +354,7 @@ const ClientIndex: React.FC = (): JSX.Element => {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [readDocs, setReadDocs] = useState<boolean[]>(() => Array(DOCUMENTS.length).fill(false));
   const [currentDocIndex, setCurrentDocIndex] = useState(0);
+  const allDocsRead = readDocs.every(Boolean);
 
   // 性能優化：預加載靜態資源與 PDF
   useEffect(() => {
@@ -572,6 +573,14 @@ const ClientIndex: React.FC = (): JSX.Element => {
                 >
                   {currentDocIndex === DOCUMENTS.length - 1 ? '已阅读，进入下一页面' : '已阅读，进入下一条款内容'}
                 </button>
+                {allDocsRead && (
+                  <button
+                    onClick={() => setStep('verify')}
+                    className="px-5 py-3 rounded-full text-sm font-black border border-jh-header/40 text-jh-header bg-white hover:bg-emerald-50 active:scale-95"
+                  >
+                    直接进入手机验证
+                  </button>
+                )}
               </div>
             </div>
           </div>
