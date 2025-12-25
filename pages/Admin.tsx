@@ -42,10 +42,34 @@ const SectionHeader: React.FC<{ title: string; subtitle: string; onScan: () => v
   </div>
 );
 
-const InputGroup: React.FC<{ label: string; value: string; onChange: (v: string) => void; error?: string; }> = ({ label, value, onChange, error }) => (
+const COMMON_COVERAGES = [
+  "机动车损失保险",
+  "机动车第三者责任保险",
+  "机动车车上人员责任保险(司机)",
+  "机动车车上人员责任保险(乘客)",
+  "机动车全车盗抢保险",
+  "玻璃单独破碎险",
+  "自燃损失险",
+  "车身划痕损失险",
+  "发动机涉水损失险",
+  "不计免赔率险"
+];
+
+const COMMON_AMOUNTS = [
+  "10万",
+  "20万",
+  "30万",
+  "50万",
+  "100万",
+  "150万",
+  "200万",
+  "300万"
+];
+
+const InputGroup: React.FC<{ label: string; value: string; onChange: (v: string) => void; error?: string; list?: string; }> = ({ label, value, onChange, error, list }) => (
   <div className="flex flex-col gap-2">
     <label className="text-xs font-black text-slate-400 tracking-widest px-1 uppercase">{label}</label>
-    <input type="text" className={`bg-slate-50 border text-slate-800 px-5 py-4 rounded-2xl outline-none font-medium focus:border-jh-green transition-all ${error ? 'border-rose-400' : 'border-slate-200'}`}
+    <input type="text" list={list} className={`bg-slate-50 border text-slate-800 px-5 py-4 rounded-2xl outline-none font-medium focus:border-jh-green transition-all ${error ? 'border-rose-400' : 'border-slate-200'}`}
       value={value} onChange={e => onChange(e.target.value)} />
     {error && <p className="text-rose-500 text-xs mt-1 px-1">{error}</p>}
   </div>
@@ -122,6 +146,16 @@ const Admin: React.FC = () => {
     }, 1000);
     return () => clearTimeout(handler);
   }, [data]);
+
+  // 自动计算总保费逻辑：监听险种明细变化
+  useEffect(() => {
+    const total = data.project.coverages.reduce((sum, item) => {
+      const val = parseFloat(item.premium) || 0;
+      return sum + val;
+    }, 0);
+
+    setData(prev => ({ ...prev, project: { ...prev.project, premium: total.toFixed(2) } }));
+  }, [data.project.coverages]);
 
   // 每当 history 变化时，将其自动保存到 Cloudflare KV
   useEffect(() => {
@@ -221,6 +255,7 @@ const Admin: React.FC = () => {
     if (section === 'insured') {
       if (field === 'name' && !value) error = '被保险人名称不能为空';
       if (field === 'idCard' && !value) error = '被保险人证件号码不能为空';
+      if (field === 'mobile' && !/^1[3-9]\d{9}$/.test(value)) error = '请输入有效的手机号码';
     }
     if (section === 'vehicle') {
       if (field === 'plate' && !value) error = '车牌号码不能为空';
@@ -415,7 +450,7 @@ const Admin: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <InputGroup label="姓名 / 机构名称" value={data.insured.name} onChange={v => handleInputChange('insured', 'name', v)} error={errors['insured.name']} />
                 <InputGroup label="证件号码" value={data.insured.idCard} onChange={v => handleInputChange('insured', 'idCard', v)} error={errors['insured.idCard']} />
-                <InputGroup label="手机号码" value={data.insured.mobile} onChange={v => handleInputChange('insured', 'mobile', v)} />
+                <InputGroup label="手机号码" value={data.insured.mobile} onChange={v => handleInputChange('insured', 'mobile', v)} error={errors['insured.mobile']} />
                 <div className="md:col-span-2"><InputGroup label="详细联系地址" value={data.insured.address} onChange={v => handleInputChange('insured', 'address', v)} /></div>
               </div>
             </div>
@@ -439,15 +474,21 @@ const Admin: React.FC = () => {
                 <h3 className="font-black text-slate-800 text-lg flex items-center gap-2">
                   <span className="w-1.5 h-4 bg-jh-green rounded-full"></span> 险种明细
                 </h3>
+                <datalist id="common-coverages">
+                  {COMMON_COVERAGES.map(name => <option key={name} value={name} />)}
+                </datalist>
+                <datalist id="common-amounts">
+                  {COMMON_AMOUNTS.map(amt => <option key={amt} value={amt} />)}
+                </datalist>
                 <div className="grid gap-4">
                   {data.project.coverages.map((coverage, index) => (
-                    <div key={index} className="bg-slate-50 p-6 rounded-3xl border border-slate-100 grid grid-cols-1 md:grid-cols-4 gap-4 relative">
-                      <InputGroup label="险种名称" value={coverage.name} onChange={v => {
+                    <div key={index} className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 grid grid-cols-1 md:grid-cols-4 gap-6 relative transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 group">
+                      <InputGroup label="险种名称" list="common-coverages" value={coverage.name} onChange={v => {
                         const newCoverages = [...data.project.coverages];
                         newCoverages[index].name = v;
                         setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
                       }} />
-                      <InputGroup label="保额/限额" value={coverage.amount} onChange={v => {
+                      <InputGroup label="保额/限额" list="common-amounts" value={coverage.amount} onChange={v => {
                         const newCoverages = [...data.project.coverages];
                         newCoverages[index].amount = v;
                         setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
@@ -467,7 +508,7 @@ const Admin: React.FC = () => {
                           const newCoverages = data.project.coverages.filter((_, i) => i !== index);
                           setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
                         }}
-                        className="absolute -top-2 -right-2 w-6 h-6 bg-rose-500 text-white rounded-full flex items-center justify-center text-xs shadow-lg"
+                        className="absolute -top-2 -right-2 w-7 h-7 bg-rose-500 text-white rounded-full flex items-center justify-center text-xs shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-20"
                       >✕</button>
                     </div>
                   ))}
