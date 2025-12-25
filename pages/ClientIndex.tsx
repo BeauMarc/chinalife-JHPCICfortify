@@ -2,8 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { decodeData, InsuranceData, CoverageItem } from '../utils/codec';
 
-// 步骤定义回归：移除 'verify'，它不再是一个独立步骤
-type Step = 'terms' | 'check' | 'sign' | 'pay' | 'completed';
+type Step = 'terms' | 'verify' | 'check' | 'sign' | 'pay' | 'completed';
 type DocItemMeta = { title: string; path: string };
 
 // --- 类型定义 ---
@@ -479,7 +478,7 @@ const PayStep: React.FC<PayStepProps> = ({ data }): React.ReactElement => {
   );
 };
 
-const ClientIndex: React.FC = (): React.ReactElement => {
+const ClientIndex: React.FC = () => {
   const location = useLocation();
   // 初始步骤强制为 'terms'，完全跳过验证步骤
   const [step, setStep] = useState<Step>('terms');
@@ -651,7 +650,7 @@ const ClientIndex: React.FC = (): React.ReactElement => {
   }
   
   // --- Safety Guard for Step ---
-  const validSteps: Step[] = ['terms','check','sign','pay','completed'];
+  const validSteps: Step[] = ['terms','verify','check','sign','pay','completed'];
   if (!validSteps.includes(step)) {
     console.error('[ClientIndex] 非法 step:', step);
     setTimeout(() => setStep('terms'), 0);
