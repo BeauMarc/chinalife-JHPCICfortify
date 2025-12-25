@@ -2,8 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { decodeData, InsuranceData, CoverageItem } from '../utils/codec';
 
-// 步骤定义回归：移除 'verify'，它不再是一个独立步骤
-type Step = 'terms' | 'check' | 'sign' | 'pay' | 'completed';
+type Step = 'terms' | 'verify' | 'check' | 'sign' | 'pay' | 'completed';
 type DocItemMeta = { title: string; path: string };
 
 // --- 类型定义 ---
@@ -24,6 +23,11 @@ type PaymentBtnProps = {
   type: 'wechat' | 'alipay';
   isActive: boolean;
   onClick: () => void;
+};
+
+type VerifyStepProps = {
+  onComplete: () => void;
+  proposerMobile: string;
 };
 
 type CheckStepProps = {
@@ -191,6 +195,48 @@ const VerifyModule: React.FC<{ mobile: string }> = ({ mobile }): React.ReactElem
           </button>
         )}
       </div>
+    </div>
+  );
+};
+
+// 手机号验证步骤（流程控制）
+const VerifyStep: React.FC<VerifyStepProps> = ({ onComplete, proposerMobile }): React.ReactElement => {
+  const [inputMobile, setInputMobile] = useState('');
+  const [error, setError] = useState('');
+
+  const handleVerify = useCallback((): void => {
+    if (!inputMobile) {
+      setError('请输入投保预留手机号');
+      return;
+    }
+    if (inputMobile === proposerMobile || inputMobile === proposerMobile.slice(-4)) {
+      setError('');
+      onComplete();
+      return;
+    }
+    setError('验证失败：请输入投保时预留的手机号');
+  }, [inputMobile, proposerMobile, onComplete]);
+
+  return (
+    <div className="bg-white p-8 rounded-[2.5rem] shadow-sm space-y-6 animate-in slide-in-from-right duration-300">
+      <h2 className="text-2xl font-black text-gray-800">身份安全验证</h2>
+      <div className="space-y-4">
+        <label className="text-xs text-gray-400 font-bold px-1 tracking-widest uppercase opacity-60">投保预留手机号</label>
+        <input
+          type="tel"
+          value={inputMobile}
+          onChange={(e) => setInputMobile(e.target.value)}
+          placeholder="请输入手机号"
+          className="w-full border-b-2 border-gray-100 py-4 text-3xl outline-none focus:border-jh-header font-black transition-all"
+        />
+        {error && <p className="text-rose-500 text-sm font-bold">{error}</p>}
+      </div>
+      <button
+        onClick={handleVerify}
+        className="w-full bg-jh-header text-white py-5 rounded-full font-black text-lg shadow-xl active:scale-95"
+      >
+        验证身份
+      </button>
     </div>
   );
 };
@@ -392,7 +438,7 @@ const SignStep: React.FC<SignStepProps> = ({ onComplete }): React.ReactElement =
   );
 };
 
-const ClientIndex: React.FC = (): React.ReactElement => {
+const ClientIndex: React.FC = (): React.ReactElement | null => {
   const location = useLocation();
   // 初始步骤强制为 'terms'，完全跳过验证步骤
   const [step, setStep] = useState<Step>('terms');
@@ -536,8 +582,8 @@ const ClientIndex: React.FC = (): React.ReactElement => {
   const markDocAndNext = useCallback((): void => {
     const isLastDocument = currentDocIndex === DOCUMENTS.length - 1;
     if (isLastDocument) {
-      // 如果是最后一个文档，直接进入 Check (核对) 步骤
-      setStep('check');
+      // 如果是最后一个文档，直接进入身份验证
+      setStep('verify');
     } else {
       setCurrentDocIndex((prevIndex) => prevIndex + 1);
     }
@@ -563,15 +609,6 @@ const ClientIndex: React.FC = (): React.ReactElement => {
     );
   }
   
-  // --- Safety Guard for Step ---
-  const validSteps: Step[] = ['terms','check','sign','pay','completed'];
-  if (!validSteps.includes(step)) {
-    console.error('[ClientIndex] 非法 step:', step);
-    // Use setTimeout to avoid state update during render loop
-    setTimeout(() => setStep('terms'), 0);
-    return null;
-  }
-
   // --- Terms View ---
   if (step === 'terms') {
     const isCurrentDocRead = readDocs[currentDocIndex];
@@ -638,8 +675,8 @@ const ClientIndex: React.FC = (): React.ReactElement => {
               </div>
               
               {allDocsRead && !isLastDoc && (
-                <button onClick={() => setStep('check')} className="w-full px-5 py-3 rounded-full text-sm font-black border-2 border-jh-header/40 text-jh-header bg-white hover:bg-emerald-50 active:scale-95 transition-all animate-in fade-in duration-500">
-                  ⚡ 快速跳过，进入核对
+                <button onClick={() => setStep('verify')} className="w-full px-5 py-3 rounded-full text-sm font-black border-2 border-jh-header/40 text-jh-header bg-white hover:bg-emerald-50 active:scale-95 transition-all animate-in fade-in duration-500">
+                  ⚡ 快速跳过，进入验证
                 </button>
               )}
             </div>
@@ -652,6 +689,7 @@ const ClientIndex: React.FC = (): React.ReactElement => {
   // --- Main View (Check, Sign, Pay) ---
   const headerTitle = React.useMemo((): string => {
     switch (step) {
+      case 'verify': return '身份安全验证';
       case 'check': return '承保信息核对';
       case 'sign': return '电子签名确认';
       case 'pay': return '保费安全支付';
@@ -671,13 +709,21 @@ const ClientIndex: React.FC = (): React.ReactElement => {
 
       {/* 顶部导航 */}
       <div className="bg-white px-6 py-4 flex justify-between text-[10px] text-gray-300 border-b uppercase font-black tracking-widest relative z-10">
-        <span className={step !== 'completed' ? 'text-jh-header' : 'text-gray-300'}>条款阅读</span>
+        <span className="text-jh-header">条款阅读</span>
+        <span className={step === 'verify' ? 'text-jh-header' : ''}>身份验证</span>
         <span className={step === 'check' || step === 'sign' || step === 'pay' ? 'text-jh-header' : ''}>承保信息</span>
         <span className={step === 'sign' || step === 'pay' ? 'text-jh-header' : ''}>签名确认</span>
         <span className={step === 'pay' ? 'text-jh-header' : ''}>保费支付</span>
       </div>
 
       <main className="p-4 space-y-4 max-w-lg mx-auto w-full flex-1 relative z-10 animate-in fade-in duration-300">
+        {step === 'verify' && (
+          <VerifyStep
+            onComplete={() => setStep('check')}
+            proposerMobile={data?.proposer?.mobile ?? ''}
+          />
+        )}
+
         {step === 'check' && (
           <CheckStep
             onComplete={() => setStep('sign')}
