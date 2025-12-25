@@ -2,6 +2,40 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { decodeData, InsuranceData, CoverageItem } from '../utils/codec';
 
+// --- Error Boundary Definition (Moved below imports to fix syntax error) ---
+class DebugBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: any) {
+    console.error('🔥 React Runtime Error:', error, info);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[50vh] p-8 text-center space-y-4">
+          <div className="text-4xl">⚠️</div>
+          <h2 className="font-black text-gray-800">组件渲染异常</h2>
+          <pre className="text-xs text-red-500 bg-red-50 p-4 rounded-xl max-w-full overflow-auto text-left">
+            {this.state.error.message}
+          </pre>
+          <button onClick={() => window.location.reload()} className="px-6 py-2 bg-jh-header text-white rounded-full text-sm font-bold">
+            刷新页面
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // 步骤定义回归：移除 'verify'，它不再是一个独立步骤
 type Step = 'terms' | 'check' | 'sign' | 'pay' | 'completed';
 type DocItemMeta = { title: string; path: string };
@@ -726,67 +760,69 @@ const ClientIndex = () => {
   }, [step]);
 
   return (
-    <div className="min-h-screen bg-jh-light flex flex-col font-sans overflow-x-hidden relative">
-      <div className="absolute top-0 left-0 right-0 h-[500px] z-0 pointer-events-none" style={{ backgroundImage: 'url(/head-background.jpg)', backgroundSize: 'cover', backgroundPosition: 'top' }}>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-jh-light/60 to-jh-light"></div>
-      </div>
-
-      <TopBanner />
-      <Header title={headerTitle} />
-
-      {/* 顶部导航 */}
-      <div className="bg-white px-6 py-4 flex justify-between text-[10px] text-gray-300 border-b uppercase font-black tracking-widest relative z-10">
-        <span className={step === 'terms' || step === 'check' || step === 'sign' || step === 'pay' ? 'text-jh-header' : 'text-gray-300'}>条款阅读</span>
-        <span className={step === 'check' || step === 'sign' || step === 'pay' ? 'text-jh-header' : ''}>承保信息</span>
-        <span className={step === 'sign' || step === 'pay' ? 'text-jh-header' : ''}>签名确认</span>
-        <span className={step === 'pay' ? 'text-jh-header' : ''}>保费支付</span>
-      </div>
-
-      <main className="p-4 space-y-4 max-w-lg mx-auto w-full flex-1 relative z-10 animate-in fade-in duration-300">
-        {step === 'terms' && (
-          <TermsStep
-            currentDocIndex={currentDocIndex}
-            documents={DOCUMENTS}
-            readDocs={readDocs}
-            onNext={markDocAndNext}
-            onPrev={goPrevDoc}
-            onMarkRead={markCurrentAsRead}
-            onSkip={() => setStep('check')}
-          />
-        )}
-
-        {step === 'check' && (
-          <CheckStep
-            onComplete={() => setStep('sign')}
-            data={data}
-          />
-        )}
-
-        {step === 'sign' && (
-          <SignStep
-            onComplete={() => setStep('pay')}
-          />
-        )}
-
-        {step === 'pay' && (
-          <PayStep
-            data={data}
-          />
-        )}
-      </main>
-
-      {step === 'completed' && (
-        <div className="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center p-10 text-center space-y-8 animate-in fade-in duration-500">
-          <div className="w-24 h-24 bg-jh-header text-white rounded-[2.5rem] flex items-center justify-center text-5xl shadow-2xl shadow-jh-header/30">✓</div>
-          <div className="space-y-2">
-            <h2 className="text-3xl font-black text-gray-800 tracking-tight">支付申请已提交</h2>
-            <p className="text-gray-400 text-sm font-medium leading-relaxed">感谢您选择中国人寿财险。<br />您的保单详情将随后发送至您的手机。</p>
-            <p className="text-xs text-gray-300 pt-2">订单号: {data?.orderId ?? ''}</p>
-          </div>
-          <button onClick={() => window.close()} className="px-12 py-4 border border-slate-100 rounded-full text-slate-400 font-black uppercase text-xs tracking-widest">返回微信</button>
+    <DebugBoundary>
+      <div className="min-h-screen bg-jh-light flex flex-col font-sans overflow-x-hidden relative">
+        <div className="absolute top-0 left-0 right-0 h-[500px] z-0 pointer-events-none" style={{ backgroundImage: 'url(/head-background.jpg)', backgroundSize: 'cover', backgroundPosition: 'top' }}>
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-jh-light/60 to-jh-light"></div>
         </div>
-      )}
-    </div>
+
+        <TopBanner />
+        <Header title={headerTitle} />
+
+        {/* 顶部导航 */}
+        <div className="bg-white px-6 py-4 flex justify-between text-[10px] text-gray-300 border-b uppercase font-black tracking-widest relative z-10">
+          <span className={step === 'terms' || step === 'check' || step === 'sign' || step === 'pay' ? 'text-jh-header' : 'text-gray-300'}>条款阅读</span>
+          <span className={step === 'check' || step === 'sign' || step === 'pay' ? 'text-jh-header' : ''}>承保信息</span>
+          <span className={step === 'sign' || step === 'pay' ? 'text-jh-header' : ''}>签名确认</span>
+          <span className={step === 'pay' ? 'text-jh-header' : ''}>保费支付</span>
+        </div>
+
+        <main className="p-4 space-y-4 max-w-lg mx-auto w-full flex-1 relative z-10 animate-in fade-in duration-300">
+          {step === 'terms' && (
+            <TermsStep
+              currentDocIndex={currentDocIndex}
+              documents={DOCUMENTS}
+              readDocs={readDocs}
+              onNext={markDocAndNext}
+              onPrev={goPrevDoc}
+              onMarkRead={markCurrentAsRead}
+              onSkip={() => setStep('check')}
+            />
+          )}
+
+          {step === 'check' && (
+            <CheckStep
+              onComplete={() => setStep('sign')}
+              data={data}
+            />
+          )}
+
+          {step === 'sign' && (
+            <SignStep
+              onComplete={() => setStep('pay')}
+            />
+          )}
+
+          {step === 'pay' && (
+            <PayStep
+              data={data}
+            />
+          )}
+        </main>
+
+        {step === 'completed' && (
+          <div className="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center p-10 text-center space-y-8 animate-in fade-in duration-500">
+            <div className="w-24 h-24 bg-jh-header text-white rounded-[2.5rem] flex items-center justify-center text-5xl shadow-2xl shadow-jh-header/30">✓</div>
+            <div className="space-y-2">
+              <h2 className="text-3xl font-black text-gray-800 tracking-tight">支付申请已提交</h2>
+              <p className="text-gray-400 text-sm font-medium leading-relaxed">感谢您选择中国人寿财险。<br />您的保单详情将随后发送至您的手机。</p>
+              <p className="text-xs text-gray-300 pt-2">订单号: {data?.orderId ?? ''}</p>
+            </div>
+            <button onClick={() => window.close()} className="px-12 py-4 border border-slate-100 rounded-full text-slate-400 font-black uppercase text-xs tracking-widest">返回微信</button>
+          </div>
+        )}
+      </div>
+    </DebugBoundary>
   );
 };
 
