@@ -594,14 +594,6 @@ const ClientIndex: React.FC = () => {
     );
   }
 
-  // --- Safety Guard for Step ---
-  const validSteps: Step[] = ['terms', 'verify', 'check', 'sign', 'pay', 'completed'];
-  if (!data || !validSteps.includes(step)) {
-    console.error('[ClientIndex] 非法 step:', step);
-    setTimeout(() => setStep('terms'), 0);
-    return null;
-  }
-
   // --- Terms View ---
   if (step === 'terms') {
     const isCurrentDocRead = readDocs[currentDocIndex];
@@ -679,25 +671,10 @@ const ClientIndex: React.FC = () => {
     );
   }
 
-  // 为 "verify" 步骤创建一个独立的、与条款页风格一致的页面，以实现平滑过渡
-  if (step === 'verify') {
-    return (
-      <div className="min-h-screen flex flex-col bg-jh-light font-sans">
-        <TopBanner />
-        <Header title="身份安全验证" />
-        <div className="p-6 flex flex-col flex-1 gap-6 max-w-lg mx-auto w-full items-center justify-center">
-          <VerifyStep
-            onComplete={() => setStep('check')}
-            proposerMobile={data.proposer.mobile}
-          />
-        </div>
-      </div>
-    );
-  }
-
   // --- Main View (Check, Sign, Pay) ---
   const headerTitle = React.useMemo((): string => {
     switch (step) {
+      case 'verify': return '身份安全验证';
       case 'check': return '承保信息核对';
       case 'sign': return '电子签名确认';
       case 'pay': return '保费安全支付';
@@ -717,13 +694,20 @@ const ClientIndex: React.FC = () => {
 
       {/* 顶部导航 */}
       <div className="bg-white px-6 py-4 flex justify-between text-[10px] text-gray-300 border-b uppercase font-black tracking-widest relative z-10">
-        <span className={step !== 'completed' ? 'text-jh-header' : 'text-gray-300'}>条款阅读</span>
-        <span className={step === 'check' || step === 'sign' || step === 'pay' ? 'text-jh-header' : ''}>承保信息</span>
-        <span className={step === 'sign' || step === 'pay' ? 'text-jh-header' : ''}>签名确认</span>
-        <span className={step === 'pay' ? 'text-jh-header' : ''}>保费支付</span>
+        <span className={step === 'verify' ? 'text-jh-header' : 'text-gray-300'}>身份验证</span>
+        <span className={step === 'check' ? 'text-jh-header' : 'text-gray-300'}>信息核对</span>
+        <span className={step === 'sign' ? 'text-jh-header' : 'text-gray-300'}>签名确认</span>
+        <span className={step === 'pay' ? 'text-jh-header' : 'text-gray-300'}>保费支付</span>
       </div>
 
       <main className="p-4 space-y-4 max-w-lg mx-auto w-full flex-1 relative z-10 animate-in fade-in duration-300">
+        {step === 'verify' && (
+          <VerifyStep
+            onComplete={() => setStep('check')}
+            proposerMobile={data.proposer.mobile}
+          />
+        )}
+
         {step === 'check' && (
           <CheckStep
             onComplete={() => setStep('sign')}
