@@ -4,13 +4,9 @@ import { useLocation } from 'react-router-dom';
 import { decodeData, InsuranceData, CoverageItem } from '../utils/codec';
 
 type Step = 'terms' | 'verify' | 'check' | 'sign' | 'pay' | 'completed';
+type DocItemMeta = { title: string; file: string };
 
 // --- 类型定义 ---
-interface ReadDocsState {
-  terms: boolean;
-  policy: boolean;
-  auth: boolean;
-}
 
 type DocItemProps = {
   title: string;
@@ -47,6 +43,13 @@ type SignStepProps = {
 type PayStepProps = {
   data: InsuranceData;
 };
+
+// --- 常量 ---
+const DOCUMENTS: DocItemMeta[] = [
+  { title: '《保险条款》', file: '保险条款.pdf' },
+  { title: '《互联网平台用戶个人信息保护政策》', file: '互联网平台用戶个人信息保护政策.pdf' },
+  { title: '《车险“投保人缴费实名认证”客户授权声明书》', file: '车险“投保人缴费实名认证”客户授权声明书.pdf' },
+];
 
 // --- 子组件定义 ---
 
@@ -348,12 +351,8 @@ const ClientIndex: React.FC = (): JSX.Element => {
   const [data, setData] = useState<InsuranceData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-
-  const [readDocs, setReadDocs] = useState<ReadDocsState>({
-    terms: false,
-    policy: false,
-    auth: false
-  });
+  const [readDocs, setReadDocs] = useState<boolean[]>(() => Array(DOCUMENTS.length).fill(false));
+  const [currentDocIndex, setCurrentDocIndex] = useState(0);
 
   // 性能優化：預加載靜態資源與 PDF
   useEffect(() => {
@@ -365,8 +364,7 @@ const ClientIndex: React.FC = (): JSX.Element => {
     });
 
     // 2. 預取 PDF 文件 (利用瀏覽器緩存)
-    const pdfFiles = ['保险条款.pdf', '互联网平台用戶个人信息保护政策.pdf', '车险“投保人缴费实名认证”客户授权声明书.pdf'];
-    pdfFiles.forEach(file => {
+    DOCUMENTS.forEach(({ file }) => {
       const link = document.createElement('link');
       link.rel = 'prefetch';
       link.as = 'fetch';
@@ -467,27 +465,32 @@ const ClientIndex: React.FC = (): JSX.Element => {
     return () => clearInterval(intervalId);
   }, [step, data?.orderId]);
 
-  const markAsRead = useCallback((key: string, filename: string): void => {
-    try {
-      const pdfUrl = `/pdfs/${encodeURIComponent(filename)}`;
-      const newWindow = window.open(pdfUrl, '_blank');
+  const currentDoc = DOCUMENTS[currentDocIndex];
 
-      if (!newWindow) {
-        alert('浏览器阻止了新窗口打开，请检查弹窗设置');
-        return;
-      }
+  const openDocInNewTab = useCallback((): void => {
+    const pdfUrl = `/pdfs/${encodeURIComponent(currentDoc.file)}`;
+    const newWindow = window.open(pdfUrl, '_blank');
+    if (!newWindow) alert('浏览器阻止了新窗口打开，请允许弹窗');
+  }, [currentDoc]);
 
-      setReadDocs((prev: ReadDocsState): ReadDocsState => ({
-        ...prev,
-        [key]: true
-      }));
-    } catch (error) {
-      console.error('打开PDF失败:', error);
-      alert('文件打开失败，请稍后重试');
-    }
+  const goPrevDoc = useCallback((): void => {
+    setCurrentDocIndex((idx) => Math.max(0, idx - 1));
   }, []);
 
-  const isAllRead = readDocs.terms && readDocs.policy && readDocs.auth;
+  const markDocAndNext = useCallback((): void => {
+    setReadDocs((prev) => {
+      const next = [...prev];
+      next[currentDocIndex] = true;
+      return next;
+    });
+
+    if (currentDocIndex < DOCUMENTS.length - 1) {
+      setCurrentDocIndex((idx) => Math.min(idx + 1, DOCUMENTS.length - 1));
+    } else {
+      setStep('verify');
+    }
+  }, [currentDocIndex]);
+
 
   if (isLoading || !data) {
     if (fetchError) {
@@ -521,18 +524,57 @@ const ClientIndex: React.FC = (): JSX.Element => {
               欢迎进入空中投保通道。根据监管要求，在进入承保流程前，请务必完整阅读并同意以下法律协议。
             </p>
           </div>
-          <div className="space-y-3 flex-1">
-            <DocItem title="《保险条款》" isRead={readDocs.terms} onClick={() => markAsRead('terms', '保险条款.pdf')} />
-            <DocItem title="《互联网平台用戶个人信息保护政策》" isRead={readDocs.policy} onClick={() => markAsRead('policy', '互联网平台用戶个人信息保护政策.pdf')} />
-            <DocItem title="《车险“投保人缴费实名认证”客户授权声明书》" isRead={readDocs.auth} onClick={() => markAsRead('auth', '车险“投保人缴费实名认证”客户授权声明书.pdf')} />
+          <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100 flex-1 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">条款 {currentDocIndex + 1} / {DOCUMENTS.length}</p>
+                <h3 className="text-lg font-black text-gray-800">{currentDoc.title}</h3>
+              </div>
+              <span className={`text-xs font-black ${readDocs[currentDocIndex] ? 'text-jh-header' : 'text-gray-400'}`}>
+                {readDocs[currentDocIndex] ? '已标记已读' : '未阅读'}
+              </span>
+            </div>
+
+            <div className="flex gap-2">
+              {DOCUMENTS.map((doc, idx) => (
+                <div key={doc.title} className={`flex-1 h-1.5 rounded-full ${idx < currentDocIndex || readDocs[idx] ? 'bg-jh-header' : 'bg-slate-200'}`} />
+              ))}
+            </div>
+
+            <div className="relative flex-1 min-h-[60vh] rounded-2xl overflow-hidden border border-slate-100 shadow-inner bg-slate-50/60">
+              <iframe
+                title={currentDoc.title}
+                src={`/pdfs/${encodeURIComponent(currentDoc.file)}`}
+                className="w-full h-full"
+              />
+              <div className="absolute top-3 right-3 flex gap-2">
+                <button onClick={openDocInNewTab} className="px-3 py-1 bg-white/80 border border-slate-200 rounded-full text-[10px] font-black text-gray-600 hover:bg-white shadow-sm active:scale-95">
+                  🔗 无法加载？新窗口打开
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3 justify-between">
+              <div className="flex gap-2">
+                {currentDocIndex > 0 && (
+                  <button
+                    onClick={goPrevDoc}
+                    className="px-5 py-3 rounded-full border border-slate-200 text-sm font-bold text-gray-500 bg-white hover:border-jh-header/40 active:scale-95"
+                  >
+                    上一条款
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={markDocAndNext}
+                  className="px-6 py-3 rounded-full text-sm font-black shadow-xl active:scale-95 transition-all bg-jh-header text-white"
+                >
+                  {currentDocIndex === DOCUMENTS.length - 1 ? '已阅读，开始身份验证' : '已阅读，下一条款'}
+                </button>
+              </div>
+            </div>
           </div>
-          <button
-            onClick={() => isAllRead ? setStep('verify') : null}
-            className={`w-full py-5 rounded-full font-black text-lg transition-all shadow-xl ${isAllRead ? 'bg-jh-header text-white active:scale-95' : 'bg-gray-200 text-gray-400'}`}
-            disabled={!isAllRead}
-          >
-            我已阅读并确认
-          </button>
         </div>
       </div>
     );
