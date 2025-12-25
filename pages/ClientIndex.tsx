@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { decodeData, InsuranceData, CoverageItem } from '../utils/codec';
 
 type Step = 'terms' | 'verify' | 'check' | 'sign' | 'pay' | 'completed';
-type DocItemMeta = { title: string; file: string };
+type DocItemMeta = { title: string; path: string };
 
 // --- 类型定义 ---
 
@@ -45,10 +45,11 @@ type PayStepProps = {
 };
 
 // --- 常量 ---
+const PDF_BASE = `${((import.meta as any).env?.BASE_URL ?? '/') }pdfs/`;
 const DOCUMENTS: DocItemMeta[] = [
-  { title: '《保险条款》', file: '保险条款.pdf' },
-  { title: '《互联网平台用戶个人信息保护政策》', file: '互联网平台用戶个人信息保护政策.pdf' },
-  { title: '《车险“投保人缴费实名认证”客户授权声明书》', file: '车险“投保人缴费实名认证”客户授权声明书.pdf' },
+  { title: '《保险条款》', path: `${PDF_BASE}${encodeURIComponent('保险条款.pdf')}` },
+  { title: '《互联网平台用戶个人信息保护政策》', path: `${PDF_BASE}${encodeURIComponent('互联网平台用戶个人信息保护政策.pdf')}` },
+  { title: '《车险“投保人缴费实名认证”客户授权声明书》', path: `${PDF_BASE}${encodeURIComponent('车险“投保人缴费实名认证”客户授权声明书.pdf')}` },
 ];
 
 // --- 子组件定义 ---
@@ -364,11 +365,11 @@ const ClientIndex: React.FC = (): JSX.Element => {
     });
 
     // 2. 預取 PDF 文件 (利用瀏覽器緩存)
-    DOCUMENTS.forEach(({ file }) => {
+    DOCUMENTS.forEach(({ path }) => {
       const link = document.createElement('link');
       link.rel = 'prefetch';
       link.as = 'fetch';
-      link.href = `/pdfs/${encodeURIComponent(file)}`;
+      link.href = path;
       document.head.appendChild(link);
     });
   }, []);
@@ -468,8 +469,7 @@ const ClientIndex: React.FC = (): JSX.Element => {
   const currentDoc = DOCUMENTS[currentDocIndex];
 
   const openDocInNewTab = useCallback((): void => {
-    const pdfUrl = `/pdfs/${encodeURIComponent(currentDoc.file)}`;
-    const newWindow = window.open(pdfUrl, '_blank');
+    const newWindow = window.open(currentDoc.path, '_blank');
     if (!newWindow) alert('浏览器阻止了新窗口打开，请允许弹窗');
   }, [currentDoc]);
 
@@ -541,10 +541,10 @@ const ClientIndex: React.FC = (): JSX.Element => {
               ))}
             </div>
 
-            <div className="relative flex-1 min-h-[60vh] rounded-2xl overflow-hidden border border-slate-100 shadow-inner bg-slate-50/60">
+              <div className="relative flex-1 min-h-[60vh] rounded-2xl overflow-hidden border border-slate-100 shadow-inner bg-slate-50/60">
               <iframe
                 title={currentDoc.title}
-                src={`/pdfs/${encodeURIComponent(currentDoc.file)}`}
+                src={currentDoc.path}
                 className="w-full h-full"
               />
               <div className="absolute top-3 right-3 flex gap-2">
