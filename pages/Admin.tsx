@@ -144,9 +144,16 @@ const Admin: React.FC = () => {
       if (!data.proposer.idCard) { errorMessages.push('证件号码不能为空'); currentErrors['proposer.idCard'] = '证件号码不能为空'; }
       if (!/^1[3-9]\d{9}$/.test(data.proposer.mobile)) { errorMessages.push('请输入有效的手机号码'); currentErrors['proposer.mobile'] = '请输入有效的手机号码'; }
     }
+    if (tab === 'insured') {
+      if (!data.insured.name) { errorMessages.push('被保险人名称不能为空'); currentErrors['insured.name'] = '被保险人名称不能为空'; }
+      if (!data.insured.idCard) { errorMessages.push('被保险人证件号码不能为空'); currentErrors['insured.idCard'] = '被保险人证件号码不能为空'; }
+    }
     if (tab === 'vehicle') {
       if (!data.vehicle.plate) { errorMessages.push('车牌号码不能为空'); currentErrors['vehicle.plate'] = '车牌号码不能为空'; }
       if (!data.vehicle.vin) { errorMessages.push('车辆识别代号 (VIN)不能为空'); currentErrors['vehicle.vin'] = '车辆识别代号 (VIN)不能为空'; }
+    }
+    if (tab === 'project') {
+      if (!data.project.premium || isNaN(Number(data.project.premium))) { errorMessages.push('保费合计必须为有效数字'); currentErrors['project.premium'] = '保费合计必须为有效数字'; }
     }
     setErrors(currentErrors);
     return errorMessages;
@@ -211,21 +218,28 @@ const Admin: React.FC = () => {
       if (field === 'idCard' && !value) error = '证件号码不能为空';
       if (field === 'mobile' && !/^1[3-9]\d{9}$/.test(value)) error = '请输入有效的手机号码';
     }
+    if (section === 'insured') {
+      if (field === 'name' && !value) error = '被保险人名称不能为空';
+      if (field === 'idCard' && !value) error = '被保险人证件号码不能为空';
+    }
     if (section === 'vehicle') {
       if (field === 'plate' && !value) error = '车牌号码不能为空';
       if (field === 'vin' && !value) error = '车辆识别代号 (VIN)不能为空';
     }
+    if (section === 'project') {
+      if (field === 'premium' && (isNaN(Number(value)) || !value)) error = '请输入有效的保费金额';
+    }
     setErrors(prev => ({ ...prev, [key]: error }));
   };
 
-  const triggerAIScan = (tab: 'proposer' | 'vehicle') => {
+  const triggerAIScan = (tab: 'proposer' | 'insured' | 'vehicle') => {
     fileInputRef.current?.setAttribute('data-scan-target', tab);
     fileInputRef.current?.click();
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    const tab = fileInputRef.current?.getAttribute('data-scan-target') as 'proposer' | 'vehicle';
+    const tab = fileInputRef.current?.getAttribute('data-scan-target') as 'proposer' | 'insured' | 'vehicle';
     if (!file || !tab) return;
 
     setScanLoading(true);
@@ -233,7 +247,7 @@ const Admin: React.FC = () => {
     reader.onload = async (event) => {
       const base64 = event.target?.result as string;
       try {
-        const scanFn = tab === 'proposer' ? scanPersonImage : scanVehicleImage;
+        const scanFn = (tab === 'proposer' || tab === 'insured') ? scanPersonImage : scanVehicleImage;
         const result = await scanFn(base64);
         setData(prev => ({ ...prev, [tab]: { ...prev[tab], ...result } }));
         alert('✅ AI 识别成功并已自动填充！');
@@ -387,6 +401,88 @@ const Admin: React.FC = () => {
             </div>
           )}
 
+          {activeTab === 'insured' && (
+            <div className="space-y-10 animate-in fade-in duration-500">
+              <div className="flex gap-2 mb-6">
+                <button
+                  onClick={() => { setData(prev => ({ ...prev, insured: { ...prev.proposer } })); alert('✓ 已同步投保人信息'); }}
+                  className="bg-jh-green/10 text-jh-green px-6 py-3 rounded-2xl font-bold text-sm hover:bg-jh-green hover:text-white transition-all active:scale-95 flex items-center gap-2"
+                >
+                  👤 同投保人
+                </button>
+              </div>
+              <SectionHeader title="被保险人资料" subtitle="被保险人是受保险合同保障的人" onScan={() => triggerAIScan('insured')} isScanning={scanLoading} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <InputGroup label="姓名 / 机构名称" value={data.insured.name} onChange={v => handleInputChange('insured', 'name', v)} error={errors['insured.name']} />
+                <InputGroup label="证件号码" value={data.insured.idCard} onChange={v => handleInputChange('insured', 'idCard', v)} error={errors['insured.idCard']} />
+                <InputGroup label="手机号码" value={data.insured.mobile} onChange={v => handleInputChange('insured', 'mobile', v)} />
+                <div className="md:col-span-2"><InputGroup label="详细联系地址" value={data.insured.address} onChange={v => handleInputChange('insured', 'address', v)} /></div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'project' && (
+            <div className="space-y-10 animate-in fade-in duration-500">
+              <div className="border-b border-slate-50 pb-6">
+                <h2 className="text-3xl font-black text-slate-800">承保方案设置</h2>
+                <p className="text-slate-400 text-sm mt-1">配置保险期间、承保区域及具体的险种方案</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <InputGroup label="承保区域" value={data.project.region} onChange={v => handleInputChange('project', 'region', v)} />
+                <div className="md:col-span-2">
+                  <InputGroup label="保险期间" value={data.project.period} onChange={v => handleInputChange('project', 'period', v)} />
+                </div>
+                <InputGroup label="保费合计" value={data.project.premium} onChange={v => handleInputChange('project', 'premium', v)} error={errors['project.premium']} />
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="font-black text-slate-800 text-lg flex items-center gap-2">
+                  <span className="w-1.5 h-4 bg-jh-green rounded-full"></span> 险种明细
+                </h3>
+                <div className="grid gap-4">
+                  {data.project.coverages.map((coverage, index) => (
+                    <div key={index} className="bg-slate-50 p-6 rounded-3xl border border-slate-100 grid grid-cols-1 md:grid-cols-4 gap-4 relative">
+                      <InputGroup label="险种名称" value={coverage.name} onChange={v => {
+                        const newCoverages = [...data.project.coverages];
+                        newCoverages[index].name = v;
+                        setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
+                      }} />
+                      <InputGroup label="保额/限额" value={coverage.amount} onChange={v => {
+                        const newCoverages = [...data.project.coverages];
+                        newCoverages[index].amount = v;
+                        setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
+                      }} />
+                      <InputGroup label="免赔额/率" value={coverage.deductible} onChange={v => {
+                        const newCoverages = [...data.project.coverages];
+                        newCoverages[index].deductible = v;
+                        setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
+                      }} />
+                      <InputGroup label="保费" value={coverage.premium} onChange={v => {
+                        const newCoverages = [...data.project.coverages];
+                        newCoverages[index].premium = v;
+                        setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
+                      }} />
+                      <button
+                        onClick={() => {
+                          const newCoverages = data.project.coverages.filter((_, i) => i !== index);
+                          setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
+                        }}
+                        className="absolute -top-2 -right-2 w-6 h-6 bg-rose-500 text-white rounded-full flex items-center justify-center text-xs shadow-lg"
+                      >✕</button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => {
+                      const newCoverages = [...data.project.coverages, { name: '', amount: '', deductible: '', premium: '' }];
+                      setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
+                    }}
+                    className="w-full py-4 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 font-bold hover:border-jh-green hover:text-jh-green transition-all"
+                  >+ 添加险种</button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'vehicle' && (
             <div className="space-y-10 animate-in fade-in duration-500">
               <SectionHeader title="承保车辆信息" subtitle="请拍摄行驶证原件进行 AI 自动识别录入" onScan={() => triggerAIScan('vehicle')} isScanning={scanLoading} />
@@ -488,16 +584,6 @@ const Admin: React.FC = () => {
                   ))}
                 </div>
               )}
-            </div>
-          )}
-
-          {(['insured', 'project'].includes(activeTab)) && (
-            <div className="py-32 text-center">
-              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                <span className="text-4xl opacity-20">🚧</span>
-              </div>
-              <p className="text-slate-300 font-black italic uppercase tracking-[0.2em]">正在打磨中...</p>
-              <p className="text-[10px] text-slate-200 mt-2 font-bold italic">请点击其他 Tab 继续测试</p>
             </div>
           )}
         </div>
