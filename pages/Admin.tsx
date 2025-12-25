@@ -69,9 +69,9 @@ const COMMON_AMOUNTS = [
 const InputGroup: React.FC<{ label: string; value: string; onChange: (v: string) => void; error?: string; list?: string; }> = ({ label, value, onChange, error, list }) => (
   <div className="flex flex-col gap-2">
     <label className="text-xs font-black text-slate-400 tracking-widest px-1 uppercase">{label}</label>
-    <input type="text" list={list} className={`bg-slate-50 border text-slate-800 px-5 py-4 rounded-2xl outline-none font-medium focus:border-jh-green transition-all ${error ? 'border-rose-400' : 'border-slate-200'}`}
+    <input type="text" list={list} className={`bg-slate-50 border text-slate-800 px-5 py-4 rounded-2xl outline-none font-medium focus:border-jh-green transition-all ${error ? 'border-rose-400 bg-rose-50' : 'border-slate-200'}`}
       value={value} onChange={e => onChange(e.target.value)} />
-    {error && <p className="text-rose-500 text-xs mt-1 px-1">{error}</p>}
+    {error && <p className="text-rose-500 text-xs mt-1 px-1 font-bold animate-pulse">{error}</p>}
   </div>
 );
 
@@ -81,18 +81,6 @@ const DiagnosticBadge: React.FC<{ label: string; status: 'ok' | 'checking' | 'fa
     {label}: {status === 'ok' ? '就绪' : (status === 'checking' ? '中' : '异常')}
   </div>
 );
-
-const PRESET_TEMPLATES = {
-  personal: {
-    proposer: { name: '李明', idType: '身份证', idCard: '11010119900307001X', mobile: '13800138000', address: '北京市朝阳区建国路88号' },
-  },
-  company: {
-    proposer: { name: '北京示例科技有限公司', idType: '统一社会信用代码', idCard: '91110105MA01Q8888A', mobile: '13910012345', address: '北京市海淀区中关村大街1号' },
-  },
-  vehicle: {
-    vehicle: { plate: '京A88888', vin: 'LSVDU25G8PK123456', brand: '特斯拉/Tesla Model Y', vehicleOwner: '李明' },
-  }
-};
 
 const Admin: React.FC = () => {
   const [data, setData] = useState<InsuranceData>(INITIAL_DATA);
@@ -107,20 +95,19 @@ const Admin: React.FC = () => {
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [completedTabs, setCompletedTabs] = useState<Set<string>>(new Set());
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const wechatQrInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
 
   const hltProductName = `国寿财险${data.vehicle.plate || '[车牌]'}机动车商业保险`;
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => setToast({ message, type });
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => setNotification({ message, type });
 
   useEffect(() => {
     checkKV();
     const config = getApiKey();
     setAiStatus(config.error ? 'fail' : 'ok');
-    // 从 Cloudflare KV 加载历史记录
     setIsHistoryLoading(true);
     fetch('/api/history?action=get')
       .then(res => (res.ok ? res.json() : []))
@@ -142,7 +129,6 @@ const Admin: React.FC = () => {
     }
   }, []);
 
-  // 实时保存草稿
   useEffect(() => {
     const handler = setTimeout(() => {
       localStorage.setItem('jh_autopay_draft', JSON.stringify(data));
@@ -150,7 +136,6 @@ const Admin: React.FC = () => {
     return () => clearTimeout(handler);
   }, [data]);
 
-  // 自动计算总保费逻辑：监听险种明细变化
   useEffect(() => {
     const total = data.project.coverages.reduce((sum: number, item: CoverageItem) => {
       const val = parseFloat(item.premium) || 0;
@@ -160,9 +145,7 @@ const Admin: React.FC = () => {
     setData(prev => ({ ...prev, project: { ...prev.project, premium: total.toFixed(2) } }));
   }, [data.project.coverages]);
 
-  // 每当 history 变化时，将其自动保存到 Cloudflare KV
   useEffect(() => {
-    // 仅在 history 实际被修改后（非初始加载）执行保存
     if (!isHistoryLoading && history.length > 0) {
       fetch('/api/history?action=set', {
         method: 'POST',
@@ -172,40 +155,39 @@ const Admin: React.FC = () => {
     }
   }, [history, isHistoryLoading]);
 
-  const validateSection = (tab: typeof activeTab): string[] => {
+  // 校验逻辑：仅在 checkAll 为 true (生成链接时) 或 检查单项完整性时使用
+  const validateSection = (section: string): string[] => {
     const errorMessages: string[] = [];
     const currentErrors: Record<string, string> = {};
 
-    if (tab === 'proposer') {
-      if (!data.proposer.name) { errorMessages.push('投保人名称不能为空'); currentErrors['proposer.name'] = '投保人名称不能为空'; }
-      if (!data.proposer.idCard) { errorMessages.push('证件号码不能为空'); currentErrors['proposer.idCard'] = '证件号码不能为空'; }
-      if (!/^1[3-9]\d{9}$/.test(data.proposer.mobile)) { errorMessages.push('请输入有效的手机号码'); currentErrors['proposer.mobile'] = '请输入有效的手机号码'; }
+    if (section === 'proposer') {
+      if (!data.proposer.name) { errorMessages.push('投保人名称不能为空'); currentErrors['proposer.name'] = '必填'; }
+      if (!data.proposer.idCard) { errorMessages.push('投保人证件号不能为空'); currentErrors['proposer.idCard'] = '必填'; }
+      if (!/^1[3-9]\d{9}$/.test(data.proposer.mobile)) { errorMessages.push('投保人手机号格式错误'); currentErrors['proposer.mobile'] = '格式错误'; }
     }
-    if (tab === 'insured') {
-      if (!data.insured.name) { errorMessages.push('被保险人名称不能为空'); currentErrors['insured.name'] = '被保险人名称不能为空'; }
-      if (!data.insured.idCard) { errorMessages.push('被保险人证件号码不能为空'); currentErrors['insured.idCard'] = '被保险人证件号码不能为空'; }
+    if (section === 'insured') {
+      if (!data.insured.name) { errorMessages.push('被保险人名称不能为空'); currentErrors['insured.name'] = '必填'; }
+      if (!data.insured.idCard) { errorMessages.push('被保险人证件号不能为空'); currentErrors['insured.idCard'] = '必填'; }
     }
-    if (tab === 'vehicle') {
-      if (!data.vehicle.plate) { errorMessages.push('车牌号码不能为空'); currentErrors['vehicle.plate'] = '车牌号码不能为空'; }
-      if (!data.vehicle.vin) { errorMessages.push('车辆识别代号 (VIN)不能为空'); currentErrors['vehicle.vin'] = '车辆识别代号 (VIN)不能为空'; }
+    if (section === 'vehicle') {
+      if (!data.vehicle.plate) { errorMessages.push('车牌号码不能为空'); currentErrors['vehicle.plate'] = '必填'; }
+      if (!data.vehicle.vin) { errorMessages.push('车辆识别代号(VIN)不能为空'); currentErrors['vehicle.vin'] = '必填'; }
     }
-    if (tab === 'project') {
-      if (!data.project.premium || isNaN(Number(data.project.premium))) { errorMessages.push('保费合计必须为有效数字'); currentErrors['project.premium'] = '保费合计必须为有效数字'; }
+    if (section === 'project') {
+      if (!data.project.premium || isNaN(Number(data.project.premium))) { errorMessages.push('保费合计无效'); currentErrors['project.premium'] = '无效'; }
     }
-    setErrors(currentErrors);
+    
+    // 如果是生成链接时的全量检查，不覆盖局部 setErrors，而是返回消息
     return errorMessages;
   };
 
   const isTabComplete = (tabId: string): boolean => {
     switch (tabId) {
-      case 'proposer':
-        return !!(data.proposer.name && data.proposer.idCard && /^1[3-9]\d{9}$/.test(data.proposer.mobile));
-      case 'vehicle':
-        return !!(data.vehicle.plate && data.vehicle.vin);
-      case 'payment':
-        return !!(data.payment.alipayUrl || data.payment.wechatQrCode);
-      default:
-        return true;
+      case 'proposer': return !!(data.proposer.name && data.proposer.idCard && /^1[3-9]\d{9}$/.test(data.proposer.mobile));
+      case 'insured': return !!(data.insured.name && data.insured.idCard);
+      case 'vehicle': return !!(data.vehicle.plate && data.vehicle.vin);
+      case 'payment': return !!(data.payment.alipayUrl || data.payment.wechatQrCode);
+      default: return true;
     }
   };
 
@@ -220,12 +202,8 @@ const Admin: React.FC = () => {
   }, [data]);
 
   const handleTabSwitch = (newTab: typeof activeTab) => {
-    const validationErrors = validateSection(activeTab);
-    if (validationErrors.length > 0) {
-      showToast(`当前页面有错误，请修正后再切换:\n- ${validationErrors.join('\n- ')}`, 'error');
-      return;
-    }
-    setErrors({}); // Clear errors when switching tab
+    // 修复 Bug：移除切换标签时的强制校验，允许用户自由浏览和录入
+    setErrors({});
     setActiveTab(newTab);
   };
 
@@ -248,26 +226,7 @@ const Admin: React.FC = () => {
 
   const handleInputChange = (section: keyof InsuranceData, field: string, value: string) => {
     setData(prev => ({ ...prev, [section]: { ...(prev[section] as any), [field]: value } }));
-    const key = `${section}.${field}`;
-    let error = '';
-    if (section === 'proposer') {
-      if (field === 'name' && !value) error = '投保人名称不能为空';
-      if (field === 'idCard' && !value) error = '证件号码不能为空';
-      if (field === 'mobile' && !/^1[3-9]\d{9}$/.test(value)) error = '请输入有效的手机号码';
-    }
-    if (section === 'insured') {
-      if (field === 'name' && !value) error = '被保险人名称不能为空';
-      if (field === 'idCard' && !value) error = '被保险人证件号码不能为空';
-      if (field === 'mobile' && !/^1[3-9]\d{9}$/.test(value)) error = '请输入有效的手机号码';
-    }
-    if (section === 'vehicle') {
-      if (field === 'plate' && !value) error = '车牌号码不能为空';
-      if (field === 'vin' && !value) error = '车辆识别代号 (VIN)不能为空';
-    }
-    if (section === 'project') {
-      if (field === 'premium' && (isNaN(Number(value)) || !value)) error = '请输入有效的保费金额';
-    }
-    setErrors((prev: Record<string, string>) => ({ ...prev, [key]: error }));
+    setErrors(prev => ({ ...prev, [`${section}.${field}`]: '' })); // 输入时清除错误
   };
 
   const triggerAIScan = (tab: 'proposer' | 'insured' | 'vehicle') => {
@@ -298,6 +257,7 @@ const Admin: React.FC = () => {
     };
     reader.readAsDataURL(file);
   };
+
   const handleWechatQrUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -311,7 +271,6 @@ const Admin: React.FC = () => {
   };
 
   const applyHistoryData = (historyData: InsuranceData) => {
-    // 深度克隆历史数据并应用，但保留当前的订单ID以防冲突
     const newData = JSON.parse(JSON.stringify(historyData));
     newData.orderId = `JH-${Math.floor(Math.random() * 100000)}`;
     setData(newData);
@@ -320,6 +279,17 @@ const Admin: React.FC = () => {
   };
 
   const generateLink = async () => {
+    // 新增：在生成链接前进行全量数据校验
+    const sectionsToCheck = ['proposer', 'insured', 'vehicle', 'project'] as const;
+    for (const section of sectionsToCheck) {
+      const msgs = validateSection(section);
+      if (msgs.length > 0) {
+        showToast(`无法生成：[${section === 'proposer' ? '投保人' : section === 'insured' ? '被保险人' : section === 'vehicle' ? '车辆' : '方案'}] 信息不完整\n${msgs[0]}`, 'error');
+        setActiveTab(section); // 跳转到有问题的标签页
+        return;
+      }
+    }
+
     setIsCloudLoading(true);
     let finalUrl = '';
     const baseUrl = window.location.href.split('#')[0];
@@ -354,11 +324,6 @@ const Admin: React.FC = () => {
     }, ...prev]);
   };
 
-  const applyTemplate = (template: Partial<InsuranceData>) => {
-    setData(prev => ({ ...prev, ...JSON.parse(JSON.stringify(template)) }));
-    showToast('✓ 模板已应用', 'success');
-  };
-
   const exportData = () => {
     const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(data, null, 2))}`;
     const link = document.createElement("a");
@@ -390,7 +355,12 @@ const Admin: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-12 md:pb-24 font-sans text-slate-900 overflow-x-hidden">
-      {toast && <toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      {notification && (
+        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-full shadow-2xl font-black text-sm animate-in fade-in slide-in-from-top-4 flex items-center gap-2 ${notification.type === 'error' ? 'bg-rose-500 text-white' : 'bg-slate-800 text-white'}`}>
+           <span>{notification.type === 'error' ? '⚠️' : '✓'}</span>
+           <span className="whitespace-pre-line">{notification.message}</span>
+        </div>
+      )}
 
       <header className="bg-jh-green text-white p-5 shadow-xl sticky top-0 z-50">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -436,9 +406,9 @@ const Admin: React.FC = () => {
             <div className="space-y-10 animate-in fade-in duration-500">
               <SectionHeader title="投保人核心资料" subtitle="请务必确保联系方式真实有效，以免影响核保" onScan={() => triggerAIScan('proposer')} isScanning={scanLoading} />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <InputGroup label="姓名 / 机构名称" value={data.proposer.name} onChange={v => handleInputChange('proposer', 'name', v)} />
-                <InputGroup label="统一社会信用代码 / 证件号" value={data.proposer.idCard} onChange={v => handleInputChange('proposer', 'idCard', v)} />
-                <InputGroup label="手机号码" value={data.proposer.mobile} onChange={v => handleInputChange('proposer', 'mobile', v)} />
+                <InputGroup label="姓名 / 机构名称" value={data.proposer.name} onChange={v => handleInputChange('proposer', 'name', v)} error={errors['proposer.name']} />
+                <InputGroup label="统一社会信用代码 / 证件号" value={data.proposer.idCard} onChange={v => handleInputChange('proposer', 'idCard', v)} error={errors['proposer.idCard']} />
+                <InputGroup label="手机号码" value={data.proposer.mobile} onChange={v => handleInputChange('proposer', 'mobile', v)} error={errors['proposer.mobile']} />
                 <div className="md:col-span-2"><InputGroup label="详细联系地址" value={data.proposer.address} onChange={v => handleInputChange('proposer', 'address', v)} /></div>
               </div>
             </div>
@@ -448,7 +418,7 @@ const Admin: React.FC = () => {
             <div className="space-y-10 animate-in fade-in duration-500">
               <div className="flex gap-2 mb-6">
                 <button
-                  onClick={() => { setData(prev => ({ ...prev, insured: { ...prev.proposer } })); alert('✓ 已同步投保人信息'); }}
+                  onClick={() => { setData(prev => ({ ...prev, insured: { ...prev.proposer } })); handleInputChange('insured', 'name', data.proposer.name); handleInputChange('insured', 'idCard', data.proposer.idCard); showToast('✓ 已同步投保人信息', 'success'); }}
                   className="bg-jh-green/10 text-jh-green px-6 py-3 rounded-2xl font-bold text-sm hover:bg-jh-green hover:text-white transition-all active:scale-95 flex items-center gap-2"
                 >
                   👤 同投保人
@@ -458,7 +428,7 @@ const Admin: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <InputGroup label="姓名 / 机构名称" value={data.insured.name} onChange={v => handleInputChange('insured', 'name', v)} error={errors['insured.name']} />
                 <InputGroup label="证件号码" value={data.insured.idCard} onChange={v => handleInputChange('insured', 'idCard', v)} error={errors['insured.idCard']} />
-                <InputGroup label="手机号码" value={data.insured.mobile} onChange={v => handleInputChange('insured', 'mobile', v)} error={errors['insured.mobile']} />
+                <InputGroup label="手机号码" value={data.insured.mobile} onChange={v => handleInputChange('insured', 'mobile', v)} />
                 <div className="md:col-span-2"><InputGroup label="详细联系地址" value={data.insured.address} onChange={v => handleInputChange('insured', 'address', v)} /></div>
               </div>
             </div>
