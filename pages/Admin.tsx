@@ -94,15 +94,6 @@ const PRESET_TEMPLATES = {
   }
 };
 
-const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onClose: () => void }> = ({ message, type, onClose }) => (
-  <div className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg text-white ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`}>
-    <div className="flex items-center justify-between">
-      <span>{message}</span>
-      <button onClick={onClose} className="ml-4 text-white font-bold">✕</button>
-    </div>
-  </div>
-);
-
 const Admin: React.FC = () => {
   const [data, setData] = useState<InsuranceData>(INITIAL_DATA);
   const [activeTab, setActiveTab] = useState<'proposer' | 'insured' | 'vehicle' | 'project' | 'payment' | 'generate' | 'history'>('proposer');
@@ -399,7 +390,7 @@ const Admin: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-12 md:pb-24 font-sans text-slate-900 overflow-x-hidden">
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      {toast && <toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       <header className="bg-jh-green text-white p-5 shadow-xl sticky top-0 z-50">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
