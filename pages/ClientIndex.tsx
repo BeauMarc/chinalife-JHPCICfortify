@@ -531,6 +531,17 @@ const ClientIndex: React.FC = (): JSX.Element => {
     );
   }
 
+  const headerTitle = React.useMemo(() => {
+    switch (step) {
+      case 'terms': return '投保合规告知与授权';
+      case 'verify': return '身份安全验证';
+      case 'check': return '承保信息核对';
+      case 'sign': return '电子签名确认';
+      case 'pay': return '保费安全支付';
+      default: return '中国人寿财险空中投保';
+    }
+  }, [step]);
+
   return (
     <div className="min-h-screen bg-jh-light flex flex-col font-sans overflow-x-hidden relative">
       {/* 背景图片层：仅在手机验证及后续步骤显示，位于新核心承保下方(TopBanner/Header下)，渐变消失 */}
@@ -541,7 +552,7 @@ const ClientIndex: React.FC = (): JSX.Element => {
       <div className="w-full bg-white shadow-sm shrink-0 relative z-10">
         <img src="/top-banner.png" className="w-full h-auto block" alt="China Life Banner" />
       </div>
-      <Header title="中国人寿财险空中投保" />
+      <Header title={headerTitle} />
 
       {/* 顶部导航 */}
       <div className="bg-white px-6 py-4 flex justify-between text-[10px] text-gray-300 border-b uppercase font-black tracking-widest relative z-10">

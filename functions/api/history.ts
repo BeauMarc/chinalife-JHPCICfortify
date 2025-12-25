@@ -1,3 +1,5 @@
+/// <reference types="@cloudflare/workers-types" />
+
 // 定义 Cloudflare Pages 函数的环境变量，包含 KV 命名空间
 interface Env {
     // 您需要在 Cloudflare 仪表盘中将一个 KV 命名空间绑定到此变量
@@ -31,6 +33,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         // 处理保存请求
         if (request.method === 'POST' && action === 'set') {
             const historyData = await request.text();
+            JSON.parse(historyData); // 校验 JSON 格式
             await env.JH_PCIC_KV.put(HISTORY_KEY, historyData);
             return new Response(JSON.stringify({ success: true }), {
                 headers: { 'Content-Type': 'application/json' },

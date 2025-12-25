@@ -82,6 +82,24 @@ const DiagnosticBadge: React.FC<{ label: string; status: 'ok' | 'checking' | 'fa
   </div>
 );
 
+const Toast: React.FC<{ message: string; type: 'success' | 'error' | 'info'; onClose: () => void }> = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const bgColor = type === 'success' ? 'bg-emerald-500' : type === 'error' ? 'bg-rose-500' : 'bg-blue-500';
+  const icon = type === 'success' ? '✓' : type === 'error' ? '⚠️' : 'ℹ️';
+
+  return (
+    <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-full shadow-2xl font-black text-sm animate-in fade-in slide-in-from-top-4 flex items-center gap-2 ${bgColor} text-white`}>
+      <span>{icon}</span>
+      <span className="whitespace-pre-line">{message}</span>
+      <button onClick={onClose} className="ml-2 opacity-70 hover:opacity-100">✕</button>
+    </div>
+  );
+};
+
 const Admin: React.FC = () => {
   const [data, setData] = useState<InsuranceData>(INITIAL_DATA);
   const [activeTab, setActiveTab] = useState<'proposer' | 'insured' | 'vehicle' | 'project' | 'payment' | 'generate' | 'history'>('proposer');
@@ -95,14 +113,14 @@ const Admin: React.FC = () => {
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [completedTabs, setCompletedTabs] = useState<Set<string>>(new Set());
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const wechatQrInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
 
   const hltProductName = `国寿财险${data.vehicle.plate || '[车牌]'}机动车商业保险`;
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => setNotification({ message, type });
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => setToast({ message, type });
+
 
   useEffect(() => {
     checkKV();
@@ -155,37 +173,12 @@ const Admin: React.FC = () => {
     }
   }, [history, isHistoryLoading]);
 
-  // 校验逻辑：仅在 checkAll 为 true (生成链接时) 或 检查单项完整性时使用
-  const validateSection = (section: string): string[] => {
-    const errorMessages: string[] = [];
-    const currentErrors: Record<string, string> = {};
-
-    if (section === 'proposer') {
-      if (!data.proposer.name) { errorMessages.push('投保人名称不能为空'); currentErrors['proposer.name'] = '必填'; }
-      if (!data.proposer.idCard) { errorMessages.push('投保人证件号不能为空'); currentErrors['proposer.idCard'] = '必填'; }
-      if (!/^1[3-9]\d{9}$/.test(data.proposer.mobile)) { errorMessages.push('投保人手机号格式错误'); currentErrors['proposer.mobile'] = '格式错误'; }
-    }
-    if (section === 'insured') {
-      if (!data.insured.name) { errorMessages.push('被保险人名称不能为空'); currentErrors['insured.name'] = '必填'; }
-      if (!data.insured.idCard) { errorMessages.push('被保险人证件号不能为空'); currentErrors['insured.idCard'] = '必填'; }
-    }
-    if (section === 'vehicle') {
-      if (!data.vehicle.plate) { errorMessages.push('车牌号码不能为空'); currentErrors['vehicle.plate'] = '必填'; }
-      if (!data.vehicle.vin) { errorMessages.push('车辆识别代号(VIN)不能为空'); currentErrors['vehicle.vin'] = '必填'; }
-    }
-    if (section === 'project') {
-      if (!data.project.premium || isNaN(Number(data.project.premium))) { errorMessages.push('保费合计无效'); currentErrors['project.premium'] = '无效'; }
-    }
-    
-    // 如果是生成链接时的全量检查，不覆盖局部 setErrors，而是返回消息
-    return errorMessages;
-  };
-
   const isTabComplete = (tabId: string): boolean => {
     switch (tabId) {
       case 'proposer': return !!(data.proposer.name && data.proposer.idCard && /^1[3-9]\d{9}$/.test(data.proposer.mobile));
-      case 'insured': return !!(data.insured.name && data.insured.idCard);
+      case 'insured': return !!(data.insured.name && data.insured.idCard && /^1[3-9]\d{9}$/.test(data.insured.mobile));
       case 'vehicle': return !!(data.vehicle.plate && data.vehicle.vin);
+      case 'project': return !!(data.project.premium && Number(data.project.premium) > 0 && data.project.coverages.length > 0);
       case 'payment': return !!(data.payment.alipayUrl || data.payment.wechatQrCode);
       default: return true;
     }
@@ -202,8 +195,7 @@ const Admin: React.FC = () => {
   }, [data]);
 
   const handleTabSwitch = (newTab: typeof activeTab) => {
-    // 修复 Bug：移除切换标签时的强制校验，允许用户自由浏览和录入
-    setErrors({});
+    // 优化：切换时不清除错误，让用户可以看到哪个标签页仍有问题
     setActiveTab(newTab);
   };
 
@@ -227,6 +219,22 @@ const Admin: React.FC = () => {
   const handleInputChange = (section: keyof InsuranceData, field: string, value: string) => {
     setData(prev => ({ ...prev, [section]: { ...(prev[section] as any), [field]: value } }));
     setErrors(prev => ({ ...prev, [`${section}.${field}`]: '' })); // 输入时清除错误
+  };
+
+  const updateCoverage = (index: number, field: keyof CoverageItem, value: string) => {
+    const newCoverages = [...data.project.coverages];
+    newCoverages[index] = { ...newCoverages[index], [field]: value };
+    setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
+  };
+
+  const addCoverage = () => {
+    const newCoverages = [...data.project.coverages, { name: '', amount: '', deductible: '', premium: '' }];
+    setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
+  };
+
+  const removeCoverage = (index: number) => {
+    const newCoverages = data.project.coverages.filter((_, i) => i !== index);
+    setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
   };
 
   const triggerAIScan = (tab: 'proposer' | 'insured' | 'vehicle') => {
@@ -278,16 +286,34 @@ const Admin: React.FC = () => {
     showToast('已成功载入曾录入的信息', 'success');
   };
 
+  const clearAll = () => {
+    if (window.confirm('确定要清空所有输入并删除草稿吗？')) {
+      setData(INITIAL_DATA);
+      localStorage.removeItem('jh_autopay_draft');
+      showToast('已清空所有数据', 'info');
+      setActiveTab('proposer');
+    }
+  };
+
   const generateLink = async () => {
-    // 新增：在生成链接前进行全量数据校验
-    const sectionsToCheck = ['proposer', 'insured', 'vehicle', 'project'] as const;
-    for (const section of sectionsToCheck) {
-      const msgs = validateSection(section);
-      if (msgs.length > 0) {
-        showToast(`无法生成：[${section === 'proposer' ? '投保人' : section === 'insured' ? '被保险人' : section === 'vehicle' ? '车辆' : '方案'}] 信息不完整\n${msgs[0]}`, 'error');
-        setActiveTab(section); // 跳转到有问题的标签页
-        return;
-      }
+    const allErrors: Record<string, string> = {};
+    if (!data.proposer.name) allErrors['proposer.name'] = '必填';
+    if (!data.proposer.idCard) allErrors['proposer.idCard'] = '必填';
+    if (!/^1[3-9]\d{9}$/.test(data.proposer.mobile)) allErrors['proposer.mobile'] = '格式错误';
+    if (!data.insured.name) allErrors['insured.name'] = '必填';
+    if (!data.insured.idCard) allErrors['insured.idCard'] = '必填';
+    if (!/^1[3-9]\d{9}$/.test(data.insured.mobile)) allErrors['insured.mobile'] = '格式错误';
+    if (!data.vehicle.plate) allErrors['vehicle.plate'] = '必填';
+    if (!data.vehicle.vin) allErrors['vehicle.vin'] = '必填';
+    if (!data.project.premium || Number(data.project.premium) <= 0) allErrors['project.premium'] = '必填';
+    setErrors(allErrors);
+
+    if (Object.keys(allErrors).length > 0) {
+      const firstErrorKey = Object.keys(allErrors)[0];
+      const section = firstErrorKey.split('.')[0] as typeof activeTab;
+      setActiveTab(section);
+      showToast('表单信息不完整，请检查红色高亮字段', 'error');
+      return;
     }
 
     setIsCloudLoading(true);
@@ -355,16 +381,11 @@ const Admin: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-12 md:pb-24 font-sans text-slate-900 overflow-x-hidden">
-      {notification && (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-full shadow-2xl font-black text-sm animate-in fade-in slide-in-from-top-4 flex items-center gap-2 ${notification.type === 'error' ? 'bg-rose-500 text-white' : 'bg-slate-800 text-white'}`}>
-           <span>{notification.type === 'error' ? '⚠️' : '✓'}</span>
-           <span className="whitespace-pre-line">{notification.message}</span>
-        </div>
-      )}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       <header className="bg-jh-green text-white p-5 shadow-xl sticky top-0 z-50">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex items-center gap-4 overflow-hidden">
+          <div className="flex items-center gap-4 overflow-hidden flex-1">
             <div className="h-10 w-auto bg-white rounded-xl flex items-center justify-center overflow-hidden border border-white/30 shadow-md px-3 shrink-0">
               <img src="jhic.jpeg" className="h-8 w-auto object-contain" alt="China Life Logo" />
             </div>
@@ -373,7 +394,8 @@ const Admin: React.FC = () => {
               <p className="text-[10px] opacity-70 tracking-[0.2em] font-medium uppercase">INTERNAL AUTOPAY SYSTEM V3.3</p>
             </div>
           </div>
-          <div className="flex gap-3 shrink-0">
+          <div className="flex gap-3 shrink-0 items-center">
+            <button onClick={clearAll} className="bg-white/10 hover:bg-white/20 px-3 py-1 rounded-full text-[10px] font-black border border-white/20 transition-all">清空</button>
             <DiagnosticBadge label="KV" status={kvStatus} onClick={checkKV} />
             <DiagnosticBadge label="AI" status={aiStatus === 'ok' ? 'ok' : (aiStatus === 'testing' ? 'checking' : 'fail')} onClick={testAI} />
           </div>
@@ -418,7 +440,7 @@ const Admin: React.FC = () => {
             <div className="space-y-10 animate-in fade-in duration-500">
               <div className="flex gap-2 mb-6">
                 <button
-                  onClick={() => { setData(prev => ({ ...prev, insured: { ...prev.proposer } })); handleInputChange('insured', 'name', data.proposer.name); handleInputChange('insured', 'idCard', data.proposer.idCard); showToast('✓ 已同步投保人信息', 'success'); }}
+                  onClick={() => { setData(prev => ({ ...prev, insured: { ...prev.proposer } })); showToast('✓ 已同步投保人信息', 'success'); }}
                   className="bg-jh-green/10 text-jh-green px-6 py-3 rounded-2xl font-bold text-sm hover:bg-jh-green hover:text-white transition-all active:scale-95 flex items-center gap-2"
                 >
                   👤 同投保人
@@ -428,7 +450,7 @@ const Admin: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <InputGroup label="姓名 / 机构名称" value={data.insured.name} onChange={v => handleInputChange('insured', 'name', v)} error={errors['insured.name']} />
                 <InputGroup label="证件号码" value={data.insured.idCard} onChange={v => handleInputChange('insured', 'idCard', v)} error={errors['insured.idCard']} />
-                <InputGroup label="手机号码" value={data.insured.mobile} onChange={v => handleInputChange('insured', 'mobile', v)} />
+                <InputGroup label="手机号码" value={data.insured.mobile} onChange={v => handleInputChange('insured', 'mobile', v)} error={errors['insured.mobile']} />
                 <div className="md:col-span-2"><InputGroup label="详细联系地址" value={data.insured.address} onChange={v => handleInputChange('insured', 'address', v)} /></div>
               </div>
             </div>
@@ -461,40 +483,16 @@ const Admin: React.FC = () => {
                 <div className="grid gap-4">
                   {data.project.coverages.map((coverage: CoverageItem, index: number) => (
                     <div key={index} className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 grid grid-cols-1 md:grid-cols-4 gap-6 relative transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 group">
-                      <div className="md:col-span-1"><InputGroup label="险种名称" list="common-coverages" value={coverage.name} onChange={v => {
-                        const newCoverages = [...data.project.coverages];
-                        newCoverages[index].name = v;
-                        setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
-                      }} /></div>
-                      <div className="md:col-span-1"><InputGroup label="保额/限额" list="common-amounts" value={coverage.amount} onChange={v => {
-                        const newCoverages = [...data.project.coverages];
-                        newCoverages[index].amount = v;
-                        setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
-                      }} /></div>
-                      <div className="md:col-span-1"><InputGroup label="免赔额/率" value={coverage.deductible} onChange={v => {
-                        const newCoverages = [...data.project.coverages];
-                        newCoverages[index].deductible = v;
-                        setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
-                      }} /></div>
-                      <div className="md:col-span-1"><InputGroup label="保费" value={coverage.premium} onChange={v => {
-                        const newCoverages = [...data.project.coverages];
-                        newCoverages[index].premium = v;
-                        setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
-                      }} /></div>
-                      <button
-                        onClick={() => {
-                          const newCoverages = data.project.coverages.filter((_, i) => i !== index);
-                          setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
-                        }}
+                      <div className="md:col-span-1"><InputGroup label="险种名称" list="common-coverages" value={coverage.name} onChange={v => updateCoverage(index, 'name', v)} /></div>
+                      <div className="md:col-span-1"><InputGroup label="保额/限额" list="common-amounts" value={coverage.amount} onChange={v => updateCoverage(index, 'amount', v)} /></div>
+                      <div className="md:col-span-1"><InputGroup label="免赔额/率" value={coverage.deductible} onChange={v => updateCoverage(index, 'deductible', v)} /></div>
+                      <div className="md:col-span-1"><InputGroup label="保费" value={coverage.premium} onChange={v => updateCoverage(index, 'premium', v)} /></div>
+                      <button onClick={() => removeCoverage(index)}
                         className="absolute -top-2 -right-2 w-7 h-7 bg-rose-500 text-white rounded-full flex items-center justify-center text-xs shadow-lg md:opacity-0 group-hover:opacity-100 transition-opacity z-20"
                       >✕</button>
                     </div>
                   ))}
-                  <button
-                    onClick={() => {
-                      const newCoverages = [...data.project.coverages, { name: '', amount: '', deductible: '', premium: '' }];
-                      setData(prev => ({ ...prev, project: { ...prev.project, coverages: newCoverages } }));
-                    }}
+                  <button onClick={addCoverage}
                     className="w-full py-4 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 font-bold hover:border-jh-green hover:text-jh-green transition-all"
                   >+ 添加险种</button>
                 </div>
@@ -607,7 +605,7 @@ const Admin: React.FC = () => {
           )}
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 
