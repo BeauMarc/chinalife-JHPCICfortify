@@ -120,9 +120,9 @@ const Admin: React.FC = () => {
     // 从 Cloudflare KV 加载历史记录
     setIsHistoryLoading(true);
     fetch('/api/history?action=get')
-      .then(res => res.ok ? res.json() : [])
-      .then(data => setHistory(data || []))
-      .catch(err => console.error("无法从 KV 加载历史记录:", err))
+      .then(res => (res.ok ? res.json() : []))
+      .then((data: HistoryRecord[]) => setHistory(Array.isArray(data) ? data : []))
+      .catch((err: Error) => console.error("无法从 KV 加载历史记录:", err))
       .finally(() => setIsHistoryLoading(false));
 
     try {
@@ -149,7 +149,7 @@ const Admin: React.FC = () => {
 
   // 自动计算总保费逻辑：监听险种明细变化
   useEffect(() => {
-    const total = data.project.coverages.reduce((sum, item) => {
+    const total = data.project.coverages.reduce((sum: number, item: CoverageItem) => {
       const val = parseFloat(item.premium) || 0;
       return sum + val;
     }, 0);
@@ -165,7 +165,7 @@ const Admin: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(history),
-      }).catch(err => console.error("保存历史记录到 KV 失败:", err));
+      }).catch((err: Error) => console.error("保存历史记录到 KV 失败:", err));
     }
   }, [history, isHistoryLoading]);
 
@@ -264,7 +264,7 @@ const Admin: React.FC = () => {
     if (section === 'project') {
       if (field === 'premium' && (isNaN(Number(value)) || !value)) error = '请输入有效的保费金额';
     }
-    setErrors(prev => ({ ...prev, [key]: error }));
+    setErrors((prev: Record<string, string>) => ({ ...prev, [key]: error }));
   };
 
   const triggerAIScan = (tab: 'proposer' | 'insured' | 'vehicle') => {
@@ -299,7 +299,7 @@ const Admin: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (ev) => {
+      reader.onload = (ev: ProgressEvent<FileReader>) => {
         const base64 = ev.target?.result as string;
         setData(prev => ({ ...prev, payment: { ...prev.payment, wechatQrCode: base64 } }));
       };
@@ -327,7 +327,7 @@ const Admin: React.FC = () => {
         body: JSON.stringify(data),
       });
       if (response.ok) {
-        const resData = await response.json();
+        const resData: { id?: string } = await response.json();
         if (resData.id) finalUrl = `${baseUrl}#/buffer?id=${resData.id}`;
       }
     } catch (e) { console.warn("KV 保存失败"); } finally { setIsCloudLoading(false); }
@@ -336,11 +336,14 @@ const Admin: React.FC = () => {
       finalUrl = `${baseUrl}#/buffer?data=${encodeData(data)}`;
     }
     setGeneratedUrl(finalUrl);
-    QRCode.toDataURL(finalUrl, { margin: 2, width: 600 }).then(url => {
-      setQrCode(url);
-      setActiveTab('generate');
-    });
-    setHistory(prev => [{
+    QRCode.toDataURL(finalUrl, { margin: 2, width: 600 })
+      .then(url => {
+        setQrCode(url);
+        setActiveTab('generate');
+      })
+      .catch((err: Error) => alert(`生成二维码失败: ${err.message}`));
+
+    setHistory((prev: HistoryRecord[]) => [{
       id: Date.now().toString(),
       timestamp: new Date().toLocaleString(),
       summary: `${data.proposer.name || '未命名'} - ${data.vehicle.plate || '无车牌'}`,
@@ -366,9 +369,9 @@ const Admin: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = (event: ProgressEvent<FileReader>) => {
       try {
-        const importedData = JSON.parse(event.target?.result as string);
+        const importedData: InsuranceData = JSON.parse(event.target?.result as string);
         if (importedData.proposer && importedData.vehicle) {
           setData(importedData);
           alert('✓ 数据导入成功！');
@@ -416,7 +419,7 @@ const Admin: React.FC = () => {
             { id: 'generate', label: '6. 生成链接' },
             { id: 'history', label: '7. 历史' }
           ].map((tab) => (
-            <button key={tab.id} onClick={() => handleTabSwitch(tab.id as any)}
+            <button key={tab.id} onClick={() => handleTabSwitch(tab.id as typeof activeTab)}
               className={`flex items-center gap-2 px-6 py-4 rounded-2xl whitespace-nowrap text-sm font-bold transition-all shadow-sm border ${activeTab === tab.id ? 'bg-jh-green text-white border-jh-green ring-4 ring-jh-green/10' : (completedTabs.has(tab.id) ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-400 border-slate-100 hover:border-jh-green/30')}`}>
               {tab.label} {completedTabs.has(tab.id) && activeTab !== tab.id && '✓'}
             </button>
@@ -481,7 +484,7 @@ const Admin: React.FC = () => {
                   {COMMON_AMOUNTS.map(amt => <option key={amt} value={amt} />)}
                 </datalist>
                 <div className="grid gap-4">
-                  {data.project.coverages.map((coverage, index) => (
+                  {data.project.coverages.map((coverage: CoverageItem, index: number) => (
                     <div key={index} className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 grid grid-cols-1 md:grid-cols-4 gap-6 relative transition-all hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 group">
                       <InputGroup label="险种名称" list="common-coverages" value={coverage.name} onChange={v => {
                         const newCoverages = [...data.project.coverages];
@@ -614,7 +617,7 @@ const Admin: React.FC = () => {
                 <div className="py-20 text-center text-slate-300 italic font-bold">暂无历史记录</div>
               ) : (
                 <div className="grid gap-4">
-                  {history.map((item) => (
+                  {history.map((item: HistoryRecord) => (
                     <div key={item.id} className="bg-slate-50 p-6 rounded-3xl flex flex-wrap justify-between items-center border border-slate-100 hover:border-jh-green/40 transition-all gap-4">
                       <div>
                         <p className="font-black text-slate-800 text-lg">{item.summary}</p>
