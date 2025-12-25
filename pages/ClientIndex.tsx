@@ -25,6 +25,11 @@ type PaymentBtnProps = {
   onClick: () => void;
 };
 
+type VerifyStepProps = {
+  onComplete: () => void;
+  proposerMobile: string;
+};
+
 type CheckStepProps = {
   onComplete: () => void;
   data: InsuranceData;
@@ -127,86 +132,29 @@ const PaymentBtn: React.FC<PaymentBtnProps> = React.memo(({ type, isActive, onCl
   </button>
 ));
 
-// --- 独立验证模块 (纯 UI 组件，完全不控制流程) ---
-const VerifyModule: React.FC<{ mobile: string }> = ({ mobile }): React.ReactElement => {
-  const [code, setCode] = useState('');
-  const [counting, setCounting] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [verified, setVerified] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null); // 使用 ref 存储定时器
+// --- 步骤子组件 ---
 
-  // 组件卸载时清理定时器，防止内存泄漏和状态更新错误
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
+const VerifyStep: React.FC<VerifyStepProps> = ({ onComplete, proposerMobile }): React.ReactElement => {
+  const [inputMobile, setInputMobile] = useState('');
+  const [error, setError] = useState('');
 
-  const sendCode = () => {
-    if (counting) return;
-    setCounting(true);
-    setTimeLeft(60);
-    
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          if (timerRef.current) clearInterval(timerRef.current);
-          setCounting(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const verify = () => {
-    if (code.length >= 4) {
-      setVerified(true);
+  const handleVerify = () => {
+    if (inputMobile === proposerMobile || inputMobile === proposerMobile.slice(-4)) {
+      onComplete();
+    } else {
+      setError('安全验证失败：请检查输入的手机号或后四位');
     }
   };
 
   return (
-    <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100 relative overflow-hidden animate-in fade-in transition-all">
-      {verified && (
-        <div className="absolute top-0 right-0 bg-emerald-100 text-emerald-600 px-3 py-1 rounded-bl-xl font-bold text-[10px] animate-in slide-in-from-right">
-          ✓ 已验证
-        </div>
-      )}
-      <div className="space-y-3">
-        <h3 className="font-black text-gray-800 text-xs flex items-center gap-2">
-          <span>📱 手机号验证</span>
-          <span className="text-[9px] text-gray-400 font-normal border border-slate-200 px-1.5 rounded-md">可选</span>
-        </h3>
-        
-        <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
-           <span className="text-xs font-black text-slate-600 font-mono tracking-wider">{mobile || '未预留号码'}</span>
-           <div className="h-3 w-px bg-slate-300"></div>
-           <input 
-             type="text" 
-             disabled={verified}
-             value={code}
-             onChange={(e) => setCode(e.target.value)}
-             placeholder="输入验证码"
-             className="flex-1 bg-transparent outline-none text-xs font-bold text-slate-800 disabled:opacity-50"
-           />
-           {!verified && (
-             <button 
-               onClick={sendCode}
-               disabled={counting}
-               className={`text-[10px] font-bold px-2 py-1 rounded-lg transition-all ${counting ? 'text-gray-400' : 'text-jh-header bg-jh-header/10 active:bg-jh-header active:text-white'}`}
-             >
-               {counting ? `${timeLeft}s` : '获取'}
-             </button>
-           )}
-        </div>
-
-        {!verified && code.length >= 4 && (
-          <button onClick={verify} className="w-full py-2 bg-emerald-50 text-emerald-600 rounded-xl font-black text-xs border border-emerald-100 active:scale-95 transition-all">
-            点击验证 (模拟)
-          </button>
-        )}
+    <div className="bg-white p-10 rounded-[2.5rem] shadow-sm space-y-10 animate-in slide-in-from-right duration-300">
+      <h2 className="text-2xl font-black text-gray-800">安全准入验证</h2>
+      <div className="space-y-6">
+        <p className="text-xs text-gray-400 font-bold uppercase tracking-widest px-1">投保手机号验证</p>
+        <input type="tel" value={inputMobile} onChange={e => { setInputMobile(e.target.value); setError(''); }} placeholder="请输入完整手机号或后四位" className="w-full border-b-2 border-gray-100 py-6 text-3xl outline-none focus:border-jh-header font-mono font-black placeholder:text-gray-100 transition-all" />
+        {error && <p className="text-rose-500 text-xs mt-2 px-1 animate-in fade-in">{error}</p>}
       </div>
+      <button onClick={handleVerify} disabled={inputMobile.length < 4} className="w-full bg-jh-header text-white py-5 rounded-full font-black text-lg shadow-xl shadow-jh-header/20 disabled:opacity-20 active:scale-95 transition-all">验证身份并继续</button>
     </div>
   );
 };
@@ -297,9 +245,6 @@ const CheckStep: React.FC<CheckStepProps> = ({ onComplete, data }): React.ReactE
           <button key={i} onClick={() => handleCardChange(i)} className={`h-2 transition-all rounded-full ${cardIndex === i ? 'w-10 bg-jh-header shadow-md shadow-jh-header/20' : 'w-2 bg-gray-200 hover:bg-jh-header/30'}`} />
         ))}
       </div>
-      
-      {/* 嵌入式验证模块：不阻塞流程，仅作为附加功能 */}
-      <VerifyModule mobile={data?.proposer?.mobile ?? ''} />
 
       <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-50 flex justify-between items-center px-10">
         <span className="text-gray-400 font-black text-[10px] uppercase tracking-widest opacity-60">保费合计</span>
@@ -418,9 +363,9 @@ const PayStep: React.FC<PayStepProps> = ({ data }): React.ReactElement => {
 
   const handleAlipay = () => {
     if (data.payment.alipayUrl) {
-       window.location.href = data.payment.alipayUrl;
+      window.location.href = data.payment.alipayUrl;
     } else {
-       alert('未配置支付宝支付链接，请联系业务员');
+      alert('未配置支付宝支付链接，请联系业务员');
     }
   };
 
@@ -428,8 +373,8 @@ const PayStep: React.FC<PayStepProps> = ({ data }): React.ReactElement => {
     <div className="flex flex-col gap-6 animate-in slide-in-from-right duration-500">
       <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-50 space-y-6">
         <div className="text-center space-y-2">
-           <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest">应付总额</p>
-           <h2 className="text-4xl font-black text-slate-800">¥ {data.project.premium}</h2>
+          <p className="text-slate-400 font-black uppercase text-[10px] tracking-widest">应付总额</p>
+          <h2 className="text-4xl font-black text-slate-800">¥ {data.project.premium}</h2>
         </div>
 
         <div className="space-y-3">
@@ -438,41 +383,41 @@ const PayStep: React.FC<PayStepProps> = ({ data }): React.ReactElement => {
         </div>
 
         <div className="pt-6 border-t border-slate-50 min-h-[220px] flex items-center justify-center">
-            {method === 'wechat' && (
-                data.payment.wechatQrCode ? (
-                    <div className="flex flex-col items-center gap-4 animate-in fade-in zoom-in">
-                        <div className="p-3 bg-white rounded-3xl shadow-lg border-2 border-slate-100 relative">
-                           <img src={data.payment.wechatQrCode} className="w-48 h-48 object-contain rounded-xl block" alt="WeChat QR" />
-                           <div className="absolute inset-0 border-4 border-slate-50/50 rounded-3xl pointer-events-none"></div>
-                        </div>
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest animate-pulse">请使用微信扫码支付</p>
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-center gap-2 text-slate-300">
-                        <span className="text-4xl">📭</span>
-                        <span className="font-bold text-xs uppercase tracking-widest">暂无收款码</span>
-                    </div>
-                )
-            )}
-
-            {method === 'alipay' && (
-                <div className="w-full space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                    <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                        <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-1">支付说明</p>
-                        <p className="text-xs text-blue-800 font-bold">点击下方按钮将跳转至支付宝收银台进行支付。支付完成后请返回本页面查看状态。</p>
-                    </div>
-                    <button onClick={handleAlipay} className="w-full py-5 bg-[#1677FF] text-white rounded-2xl font-black shadow-xl shadow-blue-200 active:scale-95 transition-all text-lg flex items-center justify-center gap-2 group">
-                        <span>立即支付</span>
-                        <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                    </button>
+          {method === 'wechat' && (
+            data.payment.wechatQrCode ? (
+              <div className="flex flex-col items-center gap-4 animate-in fade-in zoom-in">
+                <div className="p-3 bg-white rounded-3xl shadow-lg border-2 border-slate-100 relative">
+                  <img src={data.payment.wechatQrCode} className="w-48 h-48 object-contain rounded-xl block" alt="WeChat QR" />
+                  <div className="absolute inset-0 border-4 border-slate-50/50 rounded-3xl pointer-events-none"></div>
                 </div>
-            )}
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest animate-pulse">请使用微信扫码支付</p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-slate-300">
+                <span className="text-4xl">📭</span>
+                <span className="font-bold text-xs uppercase tracking-widest">暂无收款码</span>
+              </div>
+            )
+          )}
+
+          {method === 'alipay' && (
+            <div className="w-full space-y-4 animate-in fade-in slide-in-from-bottom-4">
+              <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-1">支付说明</p>
+                <p className="text-xs text-blue-800 font-bold">点击下方按钮将跳转至支付宝收银台进行支付。支付完成后请返回本页面查看状态。</p>
+              </div>
+              <button onClick={handleAlipay} className="w-full py-5 bg-[#1677FF] text-white rounded-2xl font-black shadow-xl shadow-blue-200 active:scale-95 transition-all text-lg flex items-center justify-center gap-2 group">
+                <span>立即支付</span>
+                <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+              </button>
+            </div>
+          )}
         </div>
       </div>
-      
+
       <div className="bg-slate-50 p-4 rounded-2xl text-[10px] text-slate-400 leading-relaxed font-medium text-center border border-slate-100">
-          <p>🔒 支付过程由对应支付机构提供安全保障</p>
-          <p>支付成功后，电子保单将发送至您的手机</p>
+        <p>🔒 支付过程由对应支付机构提供安全保障</p>
+        <p>支付成功后，电子保单将发送至您的手机</p>
       </div>
     </div>
   );
@@ -622,8 +567,8 @@ const ClientIndex: React.FC = () => {
   const markDocAndNext = useCallback((): void => {
     const isLastDocument = currentDocIndex === DOCUMENTS.length - 1;
     if (isLastDocument) {
-      console.log('Terms completed, switching to Check step');
-      setStep('check');
+      console.log('Terms completed, switching to Verify step');
+      setStep('verify');
     } else {
       setCurrentDocIndex((prevIndex) => prevIndex + 1);
     }
@@ -648,10 +593,10 @@ const ClientIndex: React.FC = () => {
       </div>
     );
   }
-  
+
   // --- Safety Guard for Step ---
-  const validSteps: Step[] = ['terms','verify','check','sign','pay','completed'];
-  if (!validSteps.includes(step)) {
+  const validSteps: Step[] = ['terms', 'verify', 'check', 'sign', 'pay', 'completed'];
+  if (!data || !validSteps.includes(step)) {
     console.error('[ClientIndex] 非法 step:', step);
     setTimeout(() => setStep('terms'), 0);
     return null;
@@ -721,7 +666,7 @@ const ClientIndex: React.FC = () => {
                   {isLastDoc ? '✓ 已阅读所有，进入核对' : '已阅读，下一条款 →'}
                 </button>
               </div>
-              
+
               {allDocsRead && !isLastDoc && (
                 <button onClick={() => setStep('check')} className="w-full px-5 py-3 rounded-full text-sm font-black border-2 border-jh-header/40 text-jh-header bg-white hover:bg-emerald-50 active:scale-95 transition-all animate-in fade-in duration-500">
                   ⚡ 快速跳过，进入核对
@@ -729,6 +674,22 @@ const ClientIndex: React.FC = () => {
               )}
             </div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 为 "verify" 步骤创建一个独立的、与条款页风格一致的页面，以实现平滑过渡
+  if (step === 'verify') {
+    return (
+      <div className="min-h-screen flex flex-col bg-jh-light font-sans">
+        <TopBanner />
+        <Header title="身份安全验证" />
+        <div className="p-6 flex flex-col flex-1 gap-6 max-w-lg mx-auto w-full items-center justify-center">
+          <VerifyStep
+            onComplete={() => setStep('check')}
+            proposerMobile={data.proposer.mobile}
+          />
         </div>
       </div>
     );
