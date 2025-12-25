@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { decodeData, InsuranceData, CoverageItem } from '../utils/codec';
@@ -45,7 +44,7 @@ type PayStepProps = {
 };
 
 // --- 常量 ---
-const PDF_BASE = `${((import.meta as any).env?.BASE_URL ?? '/') }pdfs/`;
+const PDF_BASE = `${((import.meta as any).env?.BASE_URL ?? '/')}pdfs/`;
 const DOCUMENTS: DocItemMeta[] = [
   { title: '《保险条款》', path: `${PDF_BASE}${encodeURIComponent('保险条款.pdf')}` },
   { title: '《互联网平台用戶个人信息保护政策》', path: `${PDF_BASE}${encodeURIComponent('互联网平台用戶个人信息保护政策.pdf')}` },
@@ -478,6 +477,8 @@ const ClientIndex: React.FC = (): JSX.Element => {
     setCurrentDocIndex((idx) => Math.max(0, idx - 1));
   }, []);
 
+  // ===== 修复 #1 & #3：添加 markCurrentAsRead 并优化 markDocAndNext =====
+
   const markCurrentAsRead = useCallback((): void => {
     setReadDocs((prev) => {
       const next = [...prev];
@@ -487,15 +488,27 @@ const ClientIndex: React.FC = (): JSX.Element => {
   }, [currentDocIndex]);
 
   const markDocAndNext = useCallback((): void => {
-    markCurrentAsRead();
+    // 检查是否是最后一个文档（修复 #3：避免闭包陷阱）
+    const isLastDocument = currentDocIndex === DOCUMENTS.length - 1;
 
-    if (currentDocIndex < DOCUMENTS.length - 1) {
-      setCurrentDocIndex((idx) => Math.min(idx + 1, DOCUMENTS.length - 1));
-    } else {
-      setStep('verify');
-    }
-  }, [currentDocIndex, markCurrentAsRead]);
+    // 先标记当前文档已读
+    setReadDocs((prev) => {
+      const next = [...prev];
+      next[currentDocIndex] = true;
+      return next;
+    });
 
+    // 延迟 300ms 进行页面切换（修复 #2：避免竞态条件）
+    setTimeout(() => {
+      if (isLastDocument) {
+        // 最后一个条款，直接切换到手机验证步骤
+        setStep('verify');
+      } else {
+        // 继续下一个条款
+        setCurrentDocIndex((prevIndex) => prevIndex + 1);
+      }
+    }, 300);
+  }, [currentDocIndex]); // ✅ 依赖项清晰
 
   if (isLoading || !data) {
     if (fetchError) {
@@ -518,6 +531,15 @@ const ClientIndex: React.FC = (): JSX.Element => {
   }
 
   if (step === 'terms') {
+    // 计算当前文档是否已读
+    const isCurrentDocRead = readDocs[currentDocIndex];
+
+    // 计算是否为最后一个文档
+    const isLastDoc = currentDocIndex === DOCUMENTS.length - 1;
+
+    // 计算是否所有文档都已读
+    const allDocsRead = readDocs.every(Boolean);
+
     return (
       <div className="min-h-screen flex flex-col bg-jh-light font-sans">
         <TopBanner />
@@ -529,70 +551,98 @@ const ClientIndex: React.FC = (): JSX.Element => {
               欢迎进入空中投保通道。根据监管要求，在进入承保流程前，请务必完整阅读并同意以下法律协议。
             </p>
           </div>
+
           <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100 flex-1 flex flex-col gap-4">
+            {/* 文档标题和进度 */}
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">条款 {currentDocIndex + 1} / {DOCUMENTS.length}</p>
+                <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">
+                  条款 {currentDocIndex + 1} / {DOCUMENTS.length}
+                </p>
                 <h3 className="text-lg font-black text-gray-800">{currentDoc.title}</h3>
               </div>
-              <span className={`text-xs font-black ${readDocs[currentDocIndex] ? 'text-jh-header' : 'text-gray-400'}`}>
-                {readDocs[currentDocIndex] ? '已标记已读' : '未阅读'}
+              <span
+                className={`text-xs font-black transition-colors duration-300 ${isCurrentDocRead ? 'text-jh-header' : 'text-gray-400'
+                  }`}
+              >
+                {isCurrentDocRead ? '✓ 已标记已读' : '未阅读'}
               </span>
             </div>
 
+            {/* 进度条 */}
             <div className="flex gap-2">
               {DOCUMENTS.map((doc, idx) => (
-                <div key={doc.title} className={`flex-1 h-1.5 rounded-full ${idx < currentDocIndex || readDocs[idx] ? 'bg-jh-header' : 'bg-slate-200'}`} />
+                <div
+                  key={doc.title}
+                  className={`flex-1 h-1.5 rounded-full transition-all duration-500 ${idx < currentDocIndex || readDocs[idx]
+                    ? 'bg-jh-header shadow-md shadow-jh-header/30'
+                    : 'bg-slate-200'
+                    }`}
+                />
               ))}
             </div>
 
-            <div className="relative flex-1 min-h-[70vh] md:min-h-[75vh] h-[calc(100vh-220px)] rounded-2xl overflow-hidden border border-slate-100 shadow-inner bg-slate-50/60">
+            {/* PDF 阅读框 */}
+            <div className="relative flex-1 min-h-[70vh] md:min-h-[75vh] h-[calc(100vh-220px)] rounded-2xl overflow-hidden border border-slate-100 shadow-inner bg-slate-50/60 animate-in fade-in duration-300">
               <iframe
                 title={currentDoc.title}
                 src={currentDoc.path}
                 className="w-full h-full"
               />
               <div className="absolute top-3 right-3 flex gap-2">
-                <button onClick={openDocInNewTab} className="px-3 py-1 bg-white/80 border border-slate-200 rounded-full text-[10px] font-black text-gray-600 hover:bg-white shadow-sm active:scale-95">
+                <button
+                  onClick={openDocInNewTab}
+                  className="px-3 py-1 bg-white/80 border border-slate-200 rounded-full text-[10px] font-black text-gray-600 hover:bg-white shadow-sm active:scale-95 transition-all"
+                >
                   🔗 无法加载？新窗口打开
                 </button>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-3 justify-between">
-              <div className="flex gap-2">
-                {currentDocIndex > 0 && (
+            {/* 导航和操作按钮 */}
+            <div className="flex flex-col gap-4">
+              {/* 上一条款按钮 */}
+              {currentDocIndex > 0 && (
+                <button
+                  onClick={goPrevDoc}
+                  className="w-full px-5 py-3 rounded-full border-2 border-slate-200 text-sm font-black text-gray-600 bg-white hover:border-jh-header/50 hover:text-jh-header active:scale-95 transition-all"
+                >
+                  ← 上一条款
+                </button>
+              )}
+
+              {/* 标记已读和继续按钮 */}
+              <div className="flex gap-3">
+                {!isCurrentDocRead && (
                   <button
-                    onClick={goPrevDoc}
-                    className="px-5 py-3 rounded-full border border-slate-200 text-sm font-bold text-gray-500 bg-white hover:border-jh-header/40 active:scale-95"
+                    onClick={markCurrentAsRead}
+                    className="flex-1 px-5 py-3 rounded-full text-sm font-black border-2 border-slate-200 text-gray-700 bg-white hover:border-jh-header/50 active:scale-95 transition-all"
                   >
-                    上一条款
+                    📖 标记已读
                   </button>
                 )}
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={markCurrentAsRead}
-                  className="px-5 py-3 rounded-full text-sm font-black border border-slate-200 text-gray-700 bg-white hover:border-jh-header/40 active:scale-95"
-                >
-                  标记当前条款已读
-                </button>
+
                 <button
                   onClick={markDocAndNext}
-                  className="px-6 py-3 rounded-full text-sm font-black shadow-xl active:scale-95 transition-all bg-jh-header text-white disabled:opacity-50"
-                  disabled={!readDocs[currentDocIndex]}
+                  className={`flex-1 px-6 py-3 rounded-full text-sm font-black shadow-xl active:scale-95 transition-all duration-300 ${isCurrentDocRead
+                    ? 'bg-jh-header text-white hover:shadow-2xl hover:shadow-jh-header/30'
+                    : 'bg-slate-100 text-gray-300 cursor-not-allowed'
+                    }`}
+                  disabled={!isCurrentDocRead}
                 >
-                  {currentDocIndex === DOCUMENTS.length - 1 ? '已阅读，进入下一页面' : '已阅读，进入下一条款内容'}
+                  {isLastDoc ? '✓ 已阅读所有，进入验证' : '已阅读，下一条款 →'}
                 </button>
-                {allDocsRead && (
-                  <button
-                    onClick={() => setStep('verify')}
-                    className="px-5 py-3 rounded-full text-sm font-black border border-jh-header/40 text-jh-header bg-white hover:bg-emerald-50 active:scale-95"
-                  >
-                    直接进入手机验证
-                  </button>
-                )}
               </div>
+
+              {/* 快速跳转按钮：仅在所有文档都已读时显示 */}
+              {allDocsRead && !isLastDoc && (
+                <button
+                  onClick={() => setStep('verify')}
+                  className="w-full px-5 py-3 rounded-full text-sm font-black border-2 border-jh-header/40 text-jh-header bg-white hover:bg-emerald-50 active:scale-95 transition-all animate-in fade-in duration-500"
+                >
+                  ⚡ 快速跳过，进入手机验证
+                </button>
+              )}
             </div>
           </div>
         </div>
