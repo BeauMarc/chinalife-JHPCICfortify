@@ -295,15 +295,22 @@ const ClientIndex = () => {
   const [currentDocIndex, setCurrentDocIndex] = useState(0);
 
   useEffect(() => {
-    // 核心修复：在 HashRouter 环境下，URL 可能形如 .../#/index?id=xxx
-    // 此时 react-router 的 location.search 可能无法正确提取参数，或者参数被误认为在 location.hash 中
-    // 我们采用双重解析机制：优先从 router 提供的 search 解析，如果失败则手动解析 window.location.hash
+    // 核心修复：在 HashRouter 环境下参数可能出现在 location.search 或 window.location.hash 中
+    // 我们采用三重兜底解析机制
     
+    // 1. 尝试从 react-router 提供的 search 解析
     const searchParams = new URLSearchParams(location.search);
     let idParam = searchParams.get('id');
     let dataParam = searchParams.get('data');
 
-    // 兜底逻辑：如果 router 解析为空，说明参数可能被错误地包裹在 hash 路径中
+    // 2. 尝试从 window.location.search 直接解析 (HashRouter 有时会剥离这部分)
+    if (!idParam && !dataParam) {
+      const nativeSearchParams = new URLSearchParams(window.location.search);
+      idParam = nativeSearchParams.get('id');
+      dataParam = nativeSearchParams.get('data');
+    }
+
+    // 3. 兜底解析：如果参数被包裹在 hash 路径中 (常见于直接拼接 URL)
     if (!idParam && !dataParam) {
       const fullHash = window.location.hash;
       const queryIndex = fullHash.indexOf('?');
@@ -319,12 +326,14 @@ const ClientIndex = () => {
       setFetchError(null);
       fetch(`/api/get?id=${idParam}`)
         .then(res => {
-          if (!res.ok) throw new Error(`请求失败 (HTTP ${res.status})`);
+          if (!res.ok) throw new Error(`数据获取失败 (HTTP ${res.status})`);
           return res.json();
         })
         .then(d => { 
-          setData(d); 
-          if (d?.status === 'paid') setStep('completed'); 
+          // 显式断言类型，修复 TS 编译错误
+          const insuranceData = d as InsuranceData;
+          setData(insuranceData); 
+          if (insuranceData.status === 'paid') setStep('completed'); 
         })
         .catch(err => {
           console.error("Fetch Error:", err);
@@ -335,7 +344,7 @@ const ClientIndex = () => {
       try { 
         const decoded = decodeData(dataParam); 
         if (decoded) setData(decoded); 
-        else setFetchError('无效的保单数据格式'); 
+        else setFetchError('保单数据格式无效'); 
       }
       catch (err) { 
         setFetchError('保单数据解析异常'); 
@@ -378,7 +387,7 @@ const ClientIndex = () => {
       <div className="min-h-screen bg-jh-light flex flex-col items-center justify-center p-10 text-center">
         <TopBanner />
         <div className="mt-12 space-y-4">
-          <p className="text-sm font-black text-gray-500">投保数据不可用</p>
+          <p className="text-sm font-black text-gray-500">投保数据加载失败</p>
           {fetchError && (
             <p className="text-xs text-rose-400 bg-rose-50 px-4 py-2 rounded-xl border border-rose-100 animate-in fade-in">{fetchError}</p>
           )}
