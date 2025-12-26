@@ -149,7 +149,7 @@ const TermsStep = ({ currentDocIndex, documents, readDocs, onNext, onPrev, onMar
   );
 };
 
-// --- Step: Check (Refactored to Paging UI) ---
+// --- Step: Check ---
 const CheckStep = ({ data, onComplete }: { data: InsuranceData; onComplete: () => void }) => {
   const [pageIndex, setPageIndex] = useState(0);
 
@@ -295,29 +295,51 @@ const ClientIndex = () => {
   const [currentDocIndex, setCurrentDocIndex] = useState(0);
 
   useEffect(() => {
-    const hash = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash;
-    const [, queryString] = hash.split('?');
-    const searchParams = new URLSearchParams(queryString || '');
+    // 核心修复：在 HashRouter 环境下，URL 可能形如 .../#/index?id=xxx
+    // 此时 react-router 的 location.search 可能无法正确提取参数，或者参数被误认为在 location.hash 中
+    // 我们采用双重解析机制：优先从 router 提供的 search 解析，如果失败则手动解析 window.location.hash
     
-    const idParam = searchParams.get('id');
-    const dataParam = searchParams.get('data');
+    const searchParams = new URLSearchParams(location.search);
+    let idParam = searchParams.get('id');
+    let dataParam = searchParams.get('data');
+
+    // 兜底逻辑：如果 router 解析为空，说明参数可能被错误地包裹在 hash 路径中
+    if (!idParam && !dataParam) {
+      const fullHash = window.location.hash;
+      const queryIndex = fullHash.indexOf('?');
+      if (queryIndex !== -1) {
+        const hashParams = new URLSearchParams(fullHash.slice(queryIndex + 1));
+        idParam = hashParams.get('id');
+        dataParam = hashParams.get('data');
+      }
+    }
 
     if (idParam) {
       setIsLoading(true);
+      setFetchError(null);
       fetch(`/api/get?id=${idParam}`)
         .then(res => {
-          if (!res.ok) throw new Error('获取保单失败');
-          return res.json() as Promise<InsuranceData>;
+          if (!res.ok) throw new Error(`请求失败 (HTTP ${res.status})`);
+          return res.json();
         })
-        .then((d: InsuranceData) => { 
+        .then(d => { 
           setData(d); 
-          if (d.status === 'paid') setStep('completed'); 
+          if (d?.status === 'paid') setStep('completed'); 
         })
-        .catch(err => setFetchError(String(err)))
+        .catch(err => {
+          console.error("Fetch Error:", err);
+          setFetchError(err.message || String(err));
+        })
         .finally(() => setIsLoading(false));
     } else if (dataParam) {
-      try { const decoded = decodeData(dataParam); if (decoded) setData(decoded); else setFetchError('无效数据'); }
-      catch { setFetchError('保单解析失败'); }
+      try { 
+        const decoded = decodeData(dataParam); 
+        if (decoded) setData(decoded); 
+        else setFetchError('无效的保单数据格式'); 
+      }
+      catch (err) { 
+        setFetchError('保单数据解析异常'); 
+      }
     }
   }, [location]);
 
@@ -355,16 +377,20 @@ const ClientIndex = () => {
     return (
       <div className="min-h-screen bg-jh-light flex flex-col items-center justify-center p-10 text-center">
         <TopBanner />
-        <p className="text-sm font-black text-gray-500 mb-4 mt-8">投保数据不可用</p>
-        {fetchError && (
-          <p className="text-xs text-rose-400 mb-6">{fetchError}</p>
-        )}
-        <button
-          onClick={() => window.location.reload()}
-          className="px-8 py-4 bg-jh-header text-white rounded-full text-xs font-black shadow-lg shadow-jh-header/20 active:scale-95 transition-all"
-        >
-          刷新重试
-        </button>
+        <div className="mt-12 space-y-4">
+          <p className="text-sm font-black text-gray-500">投保数据不可用</p>
+          {fetchError && (
+            <p className="text-xs text-rose-400 bg-rose-50 px-4 py-2 rounded-xl border border-rose-100 animate-in fade-in">{fetchError}</p>
+          )}
+          <div className="pt-4">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-8 py-4 bg-jh-header text-white rounded-full text-xs font-black shadow-lg shadow-jh-header/20 active:scale-95 transition-all"
+            >
+              刷新重试
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
