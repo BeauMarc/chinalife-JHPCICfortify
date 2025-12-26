@@ -30,7 +30,7 @@ class DebugBoundary extends React.Component<{ children: React.ReactNode }, { err
   }
 }
 
-// --- Safety Render Helper (CRITICAL to prevent White Screen) ---
+// --- Safety Render Helper ---
 const SafeRender: React.FC<{ value: any; fallback?: string }> = ({ value, fallback = '未录入' }) => {
   if (value === undefined || value === null || value === '') return <>{fallback}</>;
   if (typeof value === 'object') {
@@ -49,23 +49,6 @@ const DOCUMENTS: DocItemMeta[] = [
 
 type Step = 'terms' | 'check' | 'sign' | 'pay' | 'completed';
 type DocItemMeta = { title: string; path: string };
-
-// --- Props Types ---
-type InfoCardProps = {
-  title: string;
-  icon: string;
-  items: Array<[string, any]>;
-};
-
-type TermsStepProps = {
-  currentDocIndex: number;
-  documents: DocItemMeta[];
-  readDocs: boolean[];
-  onNext: () => void;
-  onPrev: () => void;
-  onMarkRead: () => void;
-  onSkip: () => void;
-};
 
 // --- Sub Components ---
 
@@ -89,8 +72,21 @@ const Header = ({ title }: { title: string }) => (
   </header>
 );
 
-const InfoCard = React.memo(({ title, icon, items }: InfoCardProps) => (
-  <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col min-h-[320px] animate-in fade-in zoom-in duration-500">
+const PagingIndicator = ({ current, total, onJump }: { current: number; total: number; onJump: (i: number) => void }) => (
+  <div className="flex justify-center gap-2 mb-4">
+    {Array.from({ length: total }).map((_, i) => (
+      <button
+        key={i}
+        onClick={() => onJump(i)}
+        className={`h-1.5 rounded-full transition-all duration-300 ${i === current ? 'w-8 bg-jh-header shadow-sm' : 'w-4 bg-slate-200 hover:bg-slate-300'}`}
+        aria-label={`Go to page ${i + 1}`}
+      />
+    ))}
+  </div>
+);
+
+const InfoCard = React.memo(({ title, icon, items }: { title: string; icon: string; items: Array<[string, any]> }) => (
+  <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col min-h-[380px] animate-in fade-in slide-in-from-right-4 duration-500">
     <h3 className="font-black text-gray-800 border-b border-slate-50 pb-4 mb-5 text-xs flex items-center gap-2">
       <span className="w-8 h-8 bg-jh-header/5 text-jh-header rounded-xl flex items-center justify-center text-xs shadow-inner">{icon}</span> {title}
     </h3>
@@ -107,78 +103,8 @@ const InfoCard = React.memo(({ title, icon, items }: InfoCardProps) => (
   </div>
 ));
 
-const VerifyModule = ({ mobile, onVerified }: { mobile: string, onVerified: () => void }) => {
-  const [code, setCode] = useState('');
-  const [counting, setCounting] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [verified, setVerified] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
-
-  const sendCode = () => {
-    if (counting) return;
-    setCounting(true);
-    setTimeLeft(60);
-    timerRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          if (timerRef.current) clearInterval(timerRef.current);
-          setCounting(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const handleVerify = () => {
-    if (code.length >= 4) {
-      setVerified(true);
-      onVerified();
-    }
-  };
-
-  return (
-    <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 relative overflow-hidden transition-all hover:shadow-lg">
-      {verified && (
-        <div className="absolute top-0 right-0 bg-emerald-100 text-emerald-600 px-4 py-2 rounded-bl-2xl font-black text-[10px] animate-in slide-in-from-right z-10 shadow-sm">
-          ✓ 已通过实名校验
-        </div>
-      )}
-      <h3 className="font-black text-gray-800 border-b border-slate-50 pb-4 mb-5 text-xs flex items-center gap-2">
-         <span className="w-8 h-8 bg-jh-header/5 text-jh-header rounded-xl flex items-center justify-center text-xs shadow-inner">📱</span> 投保人实名认证
-      </h3>
-      <div className="space-y-4">
-        <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-           <span className="text-xs font-black text-slate-600 font-mono tracking-wider"><SafeRender value={mobile} /></span>
-           <div className="h-4 w-px bg-slate-300"></div>
-           <input 
-             type="number" 
-             disabled={verified}
-             value={code}
-             onChange={(e) => setCode(e.target.value)}
-             placeholder="输入验证码"
-             className="flex-1 bg-transparent outline-none text-xs font-bold text-slate-800 disabled:opacity-50"
-           />
-           {!verified && (
-             <button onClick={sendCode} disabled={counting} className={`text-[10px] font-bold px-3 py-1.5 rounded-xl transition-all ${counting ? 'text-gray-400 bg-slate-200' : 'text-white bg-jh-header shadow-md active:scale-95'}`}>
-               {counting ? `${timeLeft}s` : '获取验证码'}
-             </button>
-           )}
-        </div>
-        {!verified && code.length >= 4 && (
-          <button onClick={handleVerify} className="w-full py-4 bg-emerald-50 text-emerald-600 rounded-2xl font-black text-xs border border-emerald-100 active:scale-95 shadow-sm">
-            确认验证
-          </button>
-        )}
-      </div>
-    </div>
-  );
-};
-
 // --- Step: Terms ---
-const TermsStep = ({ currentDocIndex, documents, readDocs, onNext, onPrev, onMarkRead, onSkip }: TermsStepProps) => {
+const TermsStep = ({ currentDocIndex, documents, readDocs, onNext, onPrev, onMarkRead, onSkip }: any) => {
   const currentDoc = documents[currentDocIndex];
   const isCurrentRead = readDocs[currentDocIndex];
   const isLastDoc = currentDocIndex === documents.length - 1;
@@ -223,73 +149,70 @@ const TermsStep = ({ currentDocIndex, documents, readDocs, onNext, onPrev, onMar
   );
 };
 
-// --- Step: Check ---
+// --- Step: Check (Refactored to Paging UI) ---
 const CheckStep = ({ data, onComplete }: { data: InsuranceData; onComplete: () => void }) => {
-  const [tabIndex, setTabIndex] = useState(0);
-  const [isVerified, setIsVerified] = useState(false);
+  const [pageIndex, setPageIndex] = useState(0);
 
-  const tabs = [
-    { id: 0, title: '投保人', icon: '👤', items: [['姓名', data?.proposer?.name], ['证件号', data?.proposer?.idCard], ['电话', data?.proposer?.mobile], ['地址', data?.proposer?.address]] as [string, any][] },
-    { id: 1, title: '被保险人', icon: '🛡️', items: [['姓名', data?.insured?.name || data?.proposer?.name], ['证件号', data?.insured?.idCard || data?.proposer?.idCard], ['关系', '本人'], ['电话', data?.insured?.mobile || data?.proposer?.mobile]] as [string, any][] },
-    { id: 2, title: '承保车辆', icon: '🚗', items: [['车牌号', data?.vehicle?.plate], ['品牌型号', data?.vehicle?.brand], ['识别代号', data?.vehicle?.vin], ['发动机号', data?.vehicle?.engineNo], ['所有人', data?.vehicle?.vehicleOwner]] as [string, any][] },
+  const pages = [
+    { id: 0, title: '投保人信息', icon: '👤', items: [['姓名', data?.proposer?.name], ['证件类型', data?.proposer?.idType], ['证件号', data?.proposer?.idCard], ['手机号', data?.proposer?.mobile], ['详细地址', data?.proposer?.address]] },
+    { id: 1, title: '被保险人信息', icon: '🛡️', items: [['姓名', data?.insured?.name || data?.proposer?.name], ['证件号', data?.insured?.idCard || data?.proposer?.idCard], ['与投保人关系', '本人'], ['手机号', data?.insured?.mobile || data?.proposer?.mobile]] },
+    { id: 2, title: '承保车辆信息', icon: '🚗', items: [['车牌号', data?.vehicle?.plate], ['品牌型号', data?.vehicle?.brand], ['识别代号(VIN)', data?.vehicle?.vin], ['发动机号', data?.vehicle?.engineNo], ['车辆所有人', data?.vehicle?.vehicleOwner], ['注册日期', data?.vehicle?.registerDate]] },
+    { id: 3, title: '承保方案', icon: '📋' },
   ];
+
+  const isLastPage = pageIndex === pages.length - 1;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="bg-white p-6 rounded-3xl shadow-sm flex items-center justify-between border border-slate-50">
         <div className="animate-in fade-in slide-in-from-left-4">
-          <h3 className="font-black text-gray-800 text-lg">承保信息确认</h3>
-          <p className="text-[9px] text-gray-400 font-bold uppercase tracking-[0.2em]">请仔细核对您的投保信息</p>
+          <h3 className="font-black text-gray-800 text-lg">承保信息核验</h3>
+          <p className="text-[9px] text-gray-400 font-bold uppercase tracking-[0.2em]">请核对您的投保信息（共 4 部分）</p>
         </div>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto no-scrollbar py-2 px-1">
-        {tabs.map(t => (
-          <button key={t.id} onClick={() => setTabIndex(t.id)} className={`px-5 py-2.5 rounded-full text-xs font-black transition-all whitespace-nowrap active:scale-95 ${tabIndex === t.id ? 'bg-jh-header text-white shadow-lg scale-105' : 'bg-white text-gray-400 border border-slate-100'}`}>
-            {t.icon} {t.title}
-          </button>
-        ))}
-        <button onClick={() => setTabIndex(3)} className={`px-5 py-2.5 rounded-full text-xs font-black transition-all whitespace-nowrap active:scale-95 ${tabIndex === 3 ? 'bg-jh-header text-white shadow-lg scale-105' : 'bg-white text-gray-400 border border-slate-100'}`}>
-          📋 承保方案
-        </button>
-      </div>
+      <PagingIndicator current={pageIndex} total={pages.length} onJump={setPageIndex} />
 
-      <div className="min-h-[320px] transition-all">
-        {tabIndex < 3 ? (
-          <InfoCard key={`card-${tabIndex}`} title={tabs[tabIndex].title} icon={tabs[tabIndex].icon} items={tabs[tabIndex].items} />
+      <div className="min-h-[400px]">
+        {pageIndex < 3 ? (
+          <InfoCard key={`page-${pageIndex}`} title={pages[pageIndex].title} icon={pages[pageIndex].icon} items={pages[pageIndex].items as any} />
         ) : (
-          <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 min-h-[320px] animate-in fade-in slide-in-from-right-4 duration-500">
+          <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 min-h-[400px] animate-in fade-in slide-in-from-right-4 duration-500 flex flex-col">
             <h3 className="font-black text-gray-800 border-b border-slate-50 pb-4 mb-4 text-xs flex items-center gap-2">
                <span className="w-8 h-8 bg-jh-header/5 text-jh-header rounded-xl flex items-center justify-center text-xs shadow-inner">📋</span> 承保方案明细
             </h3>
-            <div className="space-y-3">
+            <div className="space-y-3 flex-1">
               {(data?.project?.coverages || []).map((c, i) => (
                 <div key={i} className="flex justify-between items-center py-2 border-b border-slate-50 last:border-0 animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${i * 30}ms` }}>
                    <div className="flex flex-col gap-0.5">
                       <span className="text-[11px] font-black text-gray-800 leading-tight"><SafeRender value={c.name} /></span>
-                      <span className="text-[9px] font-bold text-gray-400 uppercase">限额: <SafeRender value={c.amount} /></span>
+                      <span className="text-[9px] font-bold text-gray-400 uppercase">限额/保额: <SafeRender value={c.amount} /></span>
                    </div>
                    <span className="text-xs font-black text-jh-header italic">¥<SafeRender value={c.premium} /></span>
                 </div>
               ))}
             </div>
-            <div className="mt-6 pt-4 border-t-2 border-dashed border-slate-50 flex justify-between items-center">
+            <div className="mt-6 pt-4 border-t-2 border-dashed border-slate-100 flex justify-between items-center">
                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">保费合计</span>
-               <span className="text-lg font-black text-slate-800">¥ <SafeRender value={data?.project?.premium} /></span>
+               <span className="text-sm font-bold text-slate-800 italic">¥ <SafeRender value={data?.project?.premium} /></span>
             </div>
           </div>
         )}
       </div>
 
-      <VerifyModule mobile={data?.proposer?.mobile || ''} onVerified={() => setIsVerified(true)} />
-
-      <button 
-        onClick={onComplete}
-        disabled={!isVerified}
-        className={`w-full py-5 rounded-full font-black text-lg shadow-xl transition-all ${isVerified ? 'bg-jh-header text-white active:scale-95 shadow-jh-header/30' : 'bg-gray-100 text-gray-300 cursor-not-allowed'}`}
-      >
-        {isVerified ? '信息准确，前往签名' : '请先完成实名认证'}
-      </button>
+      <div className="flex gap-3">
+        {pageIndex > 0 && (
+          <button onClick={() => setPageIndex(p => p - 1)} className="px-6 py-4 rounded-full border-2 border-slate-200 text-sm font-black text-gray-400 bg-white active:scale-95 transition-all">
+            ← 上一页
+          </button>
+        )}
+        <button 
+          onClick={() => isLastPage ? onComplete() : setPageIndex(p => p + 1)}
+          className="flex-1 py-4 bg-jh-header text-white rounded-full font-black text-sm shadow-xl shadow-jh-header/20 active:scale-95 transition-all"
+        >
+          {isLastPage ? '信息核对无误，前往签名' : '下一页 →'}
+        </button>
+      </div>
     </div>
   );
 };
@@ -372,7 +295,10 @@ const ClientIndex = () => {
   const [currentDocIndex, setCurrentDocIndex] = useState(0);
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
+    const hash = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash;
+    const [, queryString] = hash.split('?');
+    const searchParams = new URLSearchParams(queryString || '');
+    
     const idParam = searchParams.get('id');
     const dataParam = searchParams.get('data');
 
@@ -401,7 +327,7 @@ const ClientIndex = () => {
     else setCurrentDocIndex(prev => prev + 1);
   }, [currentDocIndex]);
 
-  if (isLoading || !data) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-jh-light flex flex-col items-center justify-center p-10">
         <div className="absolute inset-0 bg-white/40 animate-pulse z-0"></div>
@@ -422,14 +348,31 @@ const ClientIndex = () => {
     );
   }
 
+  if (!data) {
+    return (
+      <div className="min-h-screen bg-jh-light flex flex-col items-center justify-center p-10 text-center">
+        <TopBanner />
+        <p className="text-sm font-black text-gray-500 mb-4 mt-8">投保数据不可用</p>
+        {fetchError && (
+          <p className="text-xs text-rose-400 mb-6">{fetchError}</p>
+        )}
+        <button
+          onClick={() => window.location.reload()}
+          className="px-8 py-4 bg-jh-header text-white rounded-full text-xs font-black shadow-lg shadow-jh-header/20 active:scale-95 transition-all"
+        >
+          刷新重试
+        </button>
+      </div>
+    );
+  }
+
   const headerTitle = {
-    terms: '投保协议告知', check: '承保信息确认', sign: '电子签名确认', pay: '保费支付', completed: '投保完成'
+    terms: '投保协议告知', check: '承保信息核验', sign: '电子签名确认', pay: '保费支付', completed: '投保完成'
   }[step] || '投保服务';
 
   return (
     <DebugBoundary>
       <div className="min-h-screen bg-jh-light flex flex-col font-sans overflow-x-hidden relative pb-10">
-        {/* 背景光影流效：确保任何时刻都有动态感 */}
         <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-[400px] bg-gradient-to-b from-jh-header/5 to-transparent"></div>
           <div className="absolute -top-40 -left-40 w-96 h-96 bg-jh-header/5 rounded-full blur-[100px] animate-pulse"></div>
@@ -440,19 +383,14 @@ const ClientIndex = () => {
         <TopBanner />
         <Header title={headerTitle} />
 
-        {/* 顶部进度条 */}
         <div className="bg-white/80 backdrop-blur-md px-6 py-4 flex justify-between text-[9px] text-gray-300 border-b uppercase font-black tracking-widest relative z-10 shadow-sm">
-          <span className={['terms','check','sign','pay'].includes(step) ? 'text-jh-header font-black' : ''}>条款告知</span>
-          <span className={['check','sign','pay'].includes(step) ? 'text-jh-header font-black' : ''}>信息确认</span>
+          <span className={['terms','check','sign','pay'].includes(step) ? 'text-emerald-500 font-black' : ''}>{step !== 'terms' ? '✓ ' : ''}条款阅读</span>
+          <span className={['check','sign','pay'].includes(step) ? 'text-jh-header font-black' : ''}>承保信息</span>
           <span className={['sign','pay'].includes(step) ? 'text-jh-header font-black' : ''}>签名确认</span>
           <span className={['pay'].includes(step) ? 'text-jh-header font-black' : ''}>支付保费</span>
         </div>
 
-        {/* 核心主容器：带 key 触发全局步骤转场 */}
-        <main 
-          key={step} 
-          className="p-4 space-y-4 max-w-lg mx-auto w-full flex-1 relative z-10 animate-in fade-in slide-in-from-right duration-500 ease-out"
-        >
+        <main className="p-4 space-y-4 max-w-lg mx-auto w-full flex-1 relative z-10 animate-in fade-in slide-in-from-right duration-500 ease-out">
           {step === 'terms' && <TermsStep currentDocIndex={currentDocIndex} documents={DOCUMENTS} readDocs={readDocs} onNext={markDocAndNext} onPrev={() => setCurrentDocIndex(prev => Math.max(0, prev - 1))} onMarkRead={markCurrentAsRead} onSkip={() => setStep('check')} />}
           {step === 'check' && <CheckStep data={data} onComplete={() => setStep('sign')} />}
           {step === 'sign' && (

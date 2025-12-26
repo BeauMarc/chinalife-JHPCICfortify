@@ -1,10 +1,12 @@
 
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+import process from 'node:process'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // 注入环境变量，确保在 Cloudflare Pages 构建环境下能抓取到 API_KEY
+  // Fix: Explicitly import process to fix TS error "Property 'cwd' does not exist on type 'Process'"
   const env = loadEnv(mode, process.cwd(), '');
   
   // 优先级：系统环境变量 > .env 文件变量
