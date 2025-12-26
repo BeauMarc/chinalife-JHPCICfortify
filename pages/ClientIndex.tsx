@@ -41,10 +41,10 @@ const SafeRender: React.FC<{ value: any; fallback?: string }> = ({ value, fallba
 
 // --- Constant Definitions ---
 const DOCUMENTS: DocItemMeta[] = [
-  { title: '机动车商业保险条款', path: '#' },
-  { title: '投保须知及风险提示', path: '#' },
-  { title: '免除保险责任说明', path: '#' },
-  { title: '个人信息保护政策', path: '#' }
+  { title: '机动车商业保险条款', path: '/pdfs/auto-insurance.pdf' },
+  { title: '投保须知及风险提示', path: '/pdfs/notice.pdf' },
+  { title: '免除保险责任说明', path: '/pdfs/exclusion.pdf' },
+  { title: '个人信息保护政策', path: '/pdfs/privacy.pdf' }
 ];
 
 type Step = 'terms' | 'check' | 'sign' | 'pay' | 'completed';
@@ -122,7 +122,19 @@ const TermsStep = ({ currentDocIndex, documents, readDocs, onNext, onPrev, onMar
         </div>
       </div>
       <div className="relative flex-1 min-h-[50vh] rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-xl bg-white animate-in zoom-in-95 duration-500">
-        <iframe title={currentDoc?.title} src={currentDoc?.path} className="w-full h-full absolute inset-0" />
+        {currentDoc?.path && currentDoc.path !== '#' ? (
+          <iframe 
+            key={currentDoc.path}
+            title={currentDoc?.title} 
+            src={currentDoc?.path} 
+            className="w-full h-full absolute inset-0 border-none" 
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-slate-300 space-y-2">
+            <span className="text-4xl opacity-20">📄</span>
+            <p className="text-xs font-black uppercase tracking-widest">条款文件未配置</p>
+          </div>
+        )}
       </div>
       <div className="flex flex-col gap-3">
         <div className="flex gap-3">
