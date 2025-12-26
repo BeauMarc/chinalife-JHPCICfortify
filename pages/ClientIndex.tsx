@@ -305,10 +305,13 @@ const ClientIndex = () => {
     if (idParam) {
       setIsLoading(true);
       fetch(`/api/get?id=${idParam}`)
-        .then(res => res.ok ? res.json() : Promise.reject('获取保单失败'))
-        .then(d => { 
+        .then(res => {
+          if (!res.ok) throw new Error('获取保单失败');
+          return res.json() as Promise<InsuranceData>;
+        })
+        .then((d: InsuranceData) => { 
           setData(d); 
-          if (d?.status === 'paid') setStep('completed'); 
+          if (d.status === 'paid') setStep('completed'); 
         })
         .catch(err => setFetchError(String(err)))
         .finally(() => setIsLoading(false));
