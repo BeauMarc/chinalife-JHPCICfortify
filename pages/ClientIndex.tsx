@@ -41,10 +41,9 @@ const SafeRender: React.FC<{ value: any; fallback?: string }> = ({ value, fallba
 
 // --- Constant Definitions ---
 const DOCUMENTS: DocItemMeta[] = [
-  { title: '机动车商业保险条款', path: '/pdfs/auto-insurance.pdf' },
-  { title: '投保须知及风险提示', path: '/pdfs/notice.pdf' },
-  { title: '免除保险责任说明', path: '/pdfs/exclusion.pdf' },
-  { title: '个人信息保护政策', path: '/pdfs/privacy.pdf' }
+  { title: '机动车商业保险条款', path: '/pdfs/insurance-terms.pdf' },
+  { title: '互联网平台用户协议', path: '/pdfs/platform-terms.pdf' },
+  { title: '投保人缴费说明', path: '/pdfs/payment-notice.pdf' }
 ];
 
 type Step = 'terms' | 'check' | 'sign' | 'pay' | 'completed';
